@@ -107,6 +107,41 @@ for spatial_dims in [2, 3]:
                 ]
                 TEST_CASE_DEEP_SUPERVISION.append(test_case)
 
+TEST_CASE_RETURN_LIST = []
+for spatial_dims in [2, 3]:
+        for deep_supr_num in [1, 2]:
+            for strides in [(1, 2, 1, 2, 1), (2, 2, 2, 1), (2, 1, 1, 2, 2)]:
+                input_shape = (1, 1, *[in_size] * spatial_dims)
+
+                expected_shapes = []
+                for deep_supr_idx, s in enumerate(strides):
+                    if deep_supr_idx <= deep_supr_num:
+                        if not expected_shapes:
+                            prev_shape = (1, 2, *input_shape[2:])
+                        else:
+                            prev_shape = expected_shapes[-1]
+
+                        expected_shape = (*prev_shape[:2], *[p//s for p in prev_shape[2:]])
+                        expected_shapes.append(expected_shape)
+
+                test_case = [
+                    {
+                        "spatial_dims": spatial_dims,
+                        "in_channels": 1,
+                        "out_channels": 2,
+                        "kernel_size": [3] * len(strides),
+                        "strides": strides,
+                        "upsample_kernel_size": strides[1:],
+                        "norm_name": ("group", {"num_groups": 16}),
+                        "deep_supervision": True,
+                        "deep_supr_num": deep_supr_num,
+                        "return_list": True,
+                    },
+                    input_shape,
+                    expected_shapes,
+                ]
+                TEST_CASE_RETURN_LIST.append(test_case)
+
 
 class TestDynUNet(unittest.TestCase):
     @parameterized.expand(TEST_CASE_DYNUNET_3D)
@@ -167,6 +202,17 @@ class TestDynUNetDeepSupervision(unittest.TestCase):
         with torch.no_grad():
             results = net(torch.randn(input_shape).to(device))
             self.assertEqual(results.shape, expected_shape)
+
+
+class TestDynUNetReturnList(unittest.TestCase):
+    @parameterized.expand(TEST_CASE_RETURN_LIST)
+    def test_shape(self, input_param, input_shape, expected_shapes):
+        net = DynUNet(**input_param).to(device)
+        with torch.no_grad():
+            results = net(torch.randn(input_shape).to(device))
+            self.assertTrue(len(results) == len(expected_shapes), f"Expected output of length {len(expected_shapes)}, but got {len(results)}.")
+            for res, expected_shape in zip(results, expected_shapes):
+                self.assertEqual(res.shape, expected_shape)
 
 
 if __name__ == "__main__":

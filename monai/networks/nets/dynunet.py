@@ -111,7 +111,7 @@ class DynUNet(nn.Module):
         deep_supervision: whether to add deep supervision head before output. Defaults to ``False``.
             If ``True``, in training mode, the forward function will output not only the final feature map
             (from `output_block`), but also the feature maps that come from the intermediate up sample layers.
-            In order to unify the return type (the restriction of TorchScript), all intermediate
+            Unless return_list=True: In order to unify the return type (the restriction of TorchScript), all intermediate
             feature maps are interpolated into the same size as the final feature map and stacked together
             (with a new dimension in the first axis)into one single tensor.
             For instance, if there are two intermediate feature maps with shapes: (1, 2, 16, 12) and
@@ -125,6 +125,9 @@ class DynUNet(nn.Module):
         res_block: whether to use residual connection based convolution blocks during the network.
             Defaults to ``False``.
         trans_bias: whether to set the bias parameter in transposed convolution layers. Defaults to ``False``.
+        return_list: return a list of the outputs of the top level output and the supervision heads rather than
+            a single stacked tensor of interpolated outputs. This is done because the interpolated outputs are too large
+            to be stored in memory. On the downside, torchscript will not work since it requires a tensor as output.
     """
 
     def __init__(
@@ -143,6 +146,7 @@ class DynUNet(nn.Module):
         deep_supr_num: int = 1,
         res_block: bool = False,
         trans_bias: bool = False,
+        return_list: bool = False,
     ):
         super().__init__()
         self.spatial_dims = spatial_dims
@@ -156,6 +160,7 @@ class DynUNet(nn.Module):
         self.dropout = dropout
         self.conv_block = UnetResBlock if res_block else UnetBasicBlock
         self.trans_bias = trans_bias
+        self.return_list = return_list
         if filters is not None:
             self.filters = filters
             self.check_filters()
@@ -268,11 +273,14 @@ class DynUNet(nn.Module):
     def forward(self, x):
         out = self.skip_layers(x)
         out = self.output_block(out)
-        if self.training and self.deep_supervision:
+        if self.training and self.deep_supervision and not self.return_list:
             out_all = [out]
             for feature_map in self.heads:
                 out_all.append(interpolate(feature_map, out.shape[2:]))
             return torch.stack(out_all, dim=1)
+        elif self.training and self.deep_supervision and self.return_list:
+            out_all = [out] + self.heads
+            return out_all
         return out
 
     def get_input_block(self):
