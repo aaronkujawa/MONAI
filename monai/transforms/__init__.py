@@ -268,6 +268,7 @@ from .nvtx import (
 )
 from .post.array import (
     Activations,
+    AppendDownsampled,
     AsDiscrete,
     FillHoles,
     Invert,
@@ -282,6 +283,9 @@ from .post.array import (
 )
 from .post.dictionary import (
     ActivationsD,
+    AppendDownsampledd,
+    AppendDownsampledD,
+    AppendDownsampledDict,
     Activationsd,
     ActivationsDict,
     AsDiscreteD,

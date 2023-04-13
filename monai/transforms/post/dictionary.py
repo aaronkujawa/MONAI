@@ -41,7 +41,7 @@ from monai.transforms.post.array import (
     ProbNMS,
     RemoveSmallObjects,
     SobelGradients,
-    VoteEnsemble,
+    VoteEnsemble, AppendDownsampled,
 )
 from monai.transforms.transform import MapTransform
 from monai.transforms.utility.array import ToTensor
@@ -140,6 +140,30 @@ class Activationsd(MapTransform):
         d = dict(data)
         for key, sigmoid, softmax, other in self.key_iterator(d, self.sigmoid, self.softmax, self.other):
             d[key] = self.converter(d[key], sigmoid, softmax, other)
+        return d
+
+
+class AppendDownsampledd(MapTransform):
+    """
+    Dictionary-based wrapper of :py:class:`monai.transforms.AppendDownsampled`.
+    Convert the input tensor/array specified by `keys` into a List of tensors/arrays of downsampled versions of the
+    original tensor/array. This is useful for deep supervision where outputs of deep supervision heads can be of lower
+    resolution.
+    """
+    def __init__(
+            self,
+            keys: KeysCollection,
+            downsampled_shapes,
+            allow_missing_keys: bool = False,
+    ) -> None:
+        MapTransform.__init__(self, keys, allow_missing_keys)
+        self.append_downsampled = AppendDownsampled(downsampled_shapes)
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+
+        for key in self.key_iterator(d):
+            d[key] = self.append_downsampled(d[key])
         return d
 
 
@@ -856,6 +880,7 @@ class SobelGradientsd(MapTransform):
 
 
 ActivationsD = ActivationsDict = Activationsd
+AppendDownsampledD = AppendDownsampledDict = AppendDownsampledd
 AsDiscreteD = AsDiscreteDict = AsDiscreted
 FillHolesD = FillHolesDict = FillHolesd
 InvertD = InvertDict = Invertd

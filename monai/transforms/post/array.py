@@ -29,7 +29,7 @@ from monai.networks import one_hot
 from monai.networks.layers import GaussianFilter, apply_filter, separable_filtering
 from monai.transforms.inverse import InvertibleTransform
 from monai.transforms.transform import Transform
-from monai.transforms.utility.array import ToTensor
+from monai.transforms.utility.array import ToTensor, CastToType, EnsureType
 from monai.transforms.utils import (
     convert_applied_interp_mode,
     fill_holes,
@@ -40,9 +40,11 @@ from monai.transforms.utils import (
 from monai.transforms.utils_pytorch_numpy_unification import unravel_index
 from monai.utils import TransformBackends, convert_data_type, convert_to_tensor, ensure_tuple, look_up_option
 from monai.utils.type_conversion import convert_to_dst_type
+from torch.nn.functional import interpolate
 
 __all__ = [
     "Activations",
+    "AppendDownsampled",
     "AsDiscrete",
     "FillHoles",
     "KeepLargestConnectedComponent",
@@ -126,6 +128,60 @@ class Activations(Transform):
             img_t = act_func(img_t)
         out, *_ = convert_to_dst_type(img_t, img)
         return out
+
+
+class AppendDownsampled(Transform):
+    """
+    Convert the input tensor/array into a List of tensors/arrays of downsampled versions of the original tensor/array.
+    This is useful for deep supervision where outputs of deep supervision heads can be of lower resolution:
+
+        - creates empty List
+        - appends downsampled tensor for each shape provided in downsampled_shapes
+        - uses torch.nn.functional.interpolate for downsampling operation
+
+
+    Args:
+        downsampled_shapes: List of shapes of the downsampled tensors/arrays
+
+    """
+    def __init__(
+            self,
+            downsampled_shapes,
+            mode='nearest',
+    ) -> None:
+
+        self.downsampled_shapes = downsampled_shapes
+        self.mode = mode
+
+    def __call__(self,
+                 img: NdarrayOrTensor,
+                 ) -> NdarrayOrTensor:
+
+        img = convert_to_tensor(img, track_meta=get_track_meta())
+
+        spatial_input_size = len(self.downsampled_shapes[0])
+
+        # make sure input shape is B, C, W, H, (D)
+        added_dims = 0
+        while len(img.shape) - spatial_input_size < 2:
+            img = img.unsqueeze(0)
+            added_dims += 1
+
+        ret = []
+        for s in self.downsampled_shapes:
+            downsampled_img = interpolate(input=img, size=s, mode=self.mode)
+
+            downsampled_img = CastToType(dtype=np.uint8)(downsampled_img)  # TODO: restricts functions to work with uint8, check influence of removing this line
+            downsampled_img = EnsureType()(downsampled_img)
+
+            ret.append(downsampled_img)
+
+        # make sure output shape of each list entry is C, W, H, (D)
+        for i in range(len(ret)):
+            for _ in range(added_dims):
+                ret[i] = ret[i].squeeze(0)
+
+        return ret
 
 
 class AsDiscrete(Transform):
