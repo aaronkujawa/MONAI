@@ -1611,9 +1611,13 @@ class RandAffineGrid(Randomizable, LazyTransform):
     def __init__(
         self,
         rotate_range: RandRange = None,
+        prob_rotate: float = 1,
         shear_range: RandRange = None,
+        prob_shear: float = 1,
         translate_range: RandRange = None,
+        prob_translate: float = 1,
         scale_range: RandRange = None,
+        prob_scale: float = 1,
         device: torch.device | None = None,
         dtype: DtypeLike = np.float32,
     ) -> None:
@@ -1653,9 +1657,13 @@ class RandAffineGrid(Randomizable, LazyTransform):
 
         """
         self.rotate_range = ensure_tuple(rotate_range)
+        self.prob_rotate = prob_rotate
         self.shear_range = ensure_tuple(shear_range)
+        self.prob_shear = prob_shear
         self.translate_range = ensure_tuple(translate_range)
+        self.prob_translate = prob_translate
         self.scale_range = ensure_tuple(scale_range)
+        self.prob_scale = prob_scale
 
         self.rotate_params: list[float] | None = None
         self.shear_params: list[float] | None = None
@@ -1678,10 +1686,22 @@ class RandAffineGrid(Randomizable, LazyTransform):
         return out_param
 
     def randomize(self, data: Any | None = None) -> None:
-        self.rotate_params = self._get_rand_param(self.rotate_range)
-        self.shear_params = self._get_rand_param(self.shear_range)
-        self.translate_params = self._get_rand_param(self.translate_range)
-        self.scale_params = self._get_rand_param(self.scale_range, 1.0)
+        if self.R.rand() < self.prob_rotate:
+            self.rotate_params = self._get_rand_param(self.rotate_range)
+        else:
+            self.rotate_params = None
+        if self.R.rand() < self.prob_shear:
+            self.shear_params = self._get_rand_param(self.shear_range)
+        else:
+            self.shear_params = None
+        if self.R.rand() < self.prob_translate:
+            self.translate_params = self._get_rand_param(self.translate_range)
+        else:
+            self.translate_params = None
+        if self.R.rand() < self.prob_scale:
+            self.scale_params = self._get_rand_param(self.scale_range, 1.0)
+        else:
+            self.scale_params = None
 
     def __call__(
         self, spatial_size: Sequence[int] | None = None, grid: NdarrayOrTensor | None = None, randomize: bool = True
@@ -2144,9 +2164,13 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         self,
         prob: float = 0.1,
         rotate_range: RandRange = None,
+        prob_rotate: float = 1,
         shear_range: RandRange = None,
+        prob_shear: float = 1,
         translate_range: RandRange = None,
+        prob_translate: float = 1,
         scale_range: RandRange = None,
+        prob_scale: float = 1,
         spatial_size: Sequence[int] | int | None = None,
         mode: str | int = GridSampleMode.BILINEAR,
         padding_mode: str = GridSamplePadMode.REFLECTION,
@@ -2211,9 +2235,13 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
 
         self.rand_affine_grid = RandAffineGrid(
             rotate_range=rotate_range,
+            prob_rotate=prob_rotate,
             shear_range=shear_range,
+            prob_shear=prob_shear,
             translate_range=translate_range,
+            prob_translate=prob_translate,
             scale_range=scale_range,
+            prob_scale=prob_scale,
             device=device,
         )
         self.resampler = Resample(device=device)
