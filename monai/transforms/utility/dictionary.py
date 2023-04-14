@@ -63,7 +63,7 @@ from monai.transforms.utility.array import (
     ToPIL,
     TorchVision,
     ToTensor,
-    Transpose,
+    Transpose, SampleForegroundLocations,
 )
 from monai.transforms.utils import extreme_points_to_image, get_extreme_points
 from monai.transforms.utils_pytorch_numpy_unification import concatenate
@@ -152,6 +152,9 @@ __all__ = [
     "RepeatChannelD",
     "RepeatChannelDict",
     "RepeatChanneld",
+    "SampleForegroundLocationsD",
+    "SampleForegroundLocationsDict",
+    "SampleForegroundLocationsd",
     "SelectItemsD",
     "SelectItemsDict",
     "SelectItemsd",
@@ -1244,6 +1247,38 @@ class LabelToMaskd(MapTransform):
         return d
 
 
+class SampleForegroundLocationsd(MapTransform):
+    """
+    Dictionary-based version :py:class:`monai.transforms.SampleForegroundLocations`.
+    """
+    def __init__(
+        self,
+        label_keys: KeysCollection,
+        num_samples: int = 1000,
+        dtype: DtypeLike = np.float32,
+        allow_missing_keys: bool = False,
+    ) -> None:
+        """
+        Args:
+            label_keys: keys of labels from where the foreground is sampled
+                See also: :py:class:`monai.transforms.compose.MapTransform`
+            num_samples: how many samples to draw
+            type: data type of output tensor
+            allow_missing_keys: don't raise exception if key is missing.
+        """
+        MapTransform.__init__(self, label_keys, allow_missing_keys)
+
+        self.dtype = dtype
+        self.sample_foreground_locations = SampleForegroundLocations(num_samples=num_samples, dtype=self.dtype)
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> Dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+
+        for key in self.key_iterator(d):
+            d[key] = self.sample_foreground_locations(d[key])
+        return d
+
+
 class FgBgToIndicesd(MapTransform, MultiSampleTrait):
     """
     Dictionary-based wrapper of :py:class:`monai.transforms.FgBgToIndices`.
@@ -1851,6 +1886,7 @@ CopyItemsD = CopyItemsDict = CopyItemsd
 ConcatItemsD = ConcatItemsDict = ConcatItemsd
 LambdaD = LambdaDict = Lambdad
 LabelToMaskD = LabelToMaskDict = LabelToMaskd
+SampleForegroundLocationsD = SampleForegroundLocationsDict = SampleForegroundLocationsd
 FgBgToIndicesD = FgBgToIndicesDict = FgBgToIndicesd
 ClassesToIndicesD = ClassesToIndicesDict = ClassesToIndicesd
 ConvertToMultiChannelBasedOnBratsClassesD = (

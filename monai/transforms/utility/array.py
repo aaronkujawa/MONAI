@@ -98,6 +98,7 @@ __all__ = [
     "Lambda",
     "RandLambda",
     "LabelToMask",
+    "SampleForegroundLocations",
     "FgBgToIndices",
     "ClassesToIndices",
     "ConvertToMultiChannelBasedOnBratsClasses",
@@ -975,6 +976,39 @@ class LabelToMask(Transform):
 
         return data
 
+
+class SampleForegroundLocations(Transform):
+    """
+    Sample foreground locations and store in metadata of the label. The locations can be used for foreground
+    oversampling.
+    """
+    def __init__(
+            self,
+            num_samples: int = 1000,
+            dtype: DtypeLike = np.float32,
+        ) -> None:
+        """
+        Args:
+            num_samples: number of foreground samples
+            dtype: data type of output tensor
+        """
+        self.num_samples = num_samples
+        self.dtype = dtype
+
+    def __call__(self, label: NdarrayOrTensor) -> NdarrayOrTensor:
+        """
+        Sample foreground locations from 'label'.
+        """
+        label = convert_to_tensor(label, track_meta=get_track_meta(), dtype=self.dtype)
+
+        all_locations = (label > 0).nonzero()
+
+        # TODO: Handle case of no foreground
+        random_indices = torch.randint(0, len(all_locations), (self.num_samples, ))
+        random_samples = all_locations[random_indices]
+
+        label.meta["foreground_sample_locations"] = random_samples.cpu().numpy()
+        return label
 
 class FgBgToIndices(Transform, MultiSampleTrait):
     """
