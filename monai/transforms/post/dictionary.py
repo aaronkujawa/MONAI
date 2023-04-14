@@ -153,7 +153,16 @@ class AppendDownsampledd(MapTransform):
     """
 
     def __init__(self, keys: KeysCollection, downsampled_shapes, allow_missing_keys: bool = False) -> None:
-        MapTransform.__init__(self, keys, allow_missing_keys)
+        super().__init__(keys, allow_missing_keys)
+        """
+        Args:
+            keys: keys of the corresponding items.
+                See also: :py:class:`monai.transforms.compose.MapTransform`
+            downsampled_shapes: List of shapes of the downsampled tensors/arrays
+            allow_missing_keys: don't raise exception if key is missing.
+            
+        """
+
         self.append_downsampled = AppendDownsampled(downsampled_shapes)
 
     def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
