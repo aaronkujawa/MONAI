@@ -283,11 +283,11 @@ from .post.array import (
 )
 from .post.dictionary import (
     ActivationsD,
+    Activationsd,
+    ActivationsDict,
     AppendDownsampledd,
     AppendDownsampledD,
     AppendDownsampledDict,
-    Activationsd,
-    ActivationsDict,
     AsDiscreteD,
     AsDiscreted,
     AsDiscreteDict,

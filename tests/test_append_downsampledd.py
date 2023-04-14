@@ -13,12 +13,11 @@ from __future__ import annotations
 
 import unittest
 
+import numpy as np
 from parameterized import parameterized
 
 from monai.transforms import AppendDownsampledd
 from tests.utils import TEST_NDARRAYS, assert_allclose
-
-import numpy as np
 
 TEST_CASES = []
 for p in TEST_NDARRAYS:
@@ -26,9 +25,12 @@ for p in TEST_NDARRAYS:
         downsampled_shapes = [(5, 5, 5), (4, 4, 4)]
         TEST_CASES.append(
             [
-                {"keys": ["label"], "downsampled_shapes":downsampled_shapes},
-                {"pred": p(np.ones([10, 10, 9])*(val-3.2)), "label": p(np.ones([10, 10, 9])*val)},
-                {"pred": p(np.ones([10, 10, 9])*(val-3.2)), "label": [p(np.ones(s)*val) for s in downsampled_shapes]},
+                {"keys": ["label"], "downsampled_shapes": downsampled_shapes},
+                {"pred": p(np.ones([10, 10, 9]) * (val - 3.2)), "label": p(np.ones([10, 10, 9]) * val)},
+                {
+                    "pred": p(np.ones([10, 10, 9]) * (val - 3.2)),
+                    "label": [p(np.ones(s) * val) for s in downsampled_shapes],
+                },
                 downsampled_shapes,
             ]
         )

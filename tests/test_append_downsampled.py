@@ -26,8 +26,8 @@ for p in TEST_NDARRAYS:
         TEST_CASES.append(
             [
                 {"downsampled_shapes": downsampled_shapes},
-                p(np.ones([10, 10, 9])*val),
-                [p(np.ones(s)*val) for s in downsampled_shapes],
+                p(np.ones([10, 10, 9]) * val),
+                [p(np.ones(s) * val) for s in downsampled_shapes],
                 downsampled_shapes,
             ]
         )

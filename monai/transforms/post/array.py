@@ -21,6 +21,7 @@ from collections.abc import Callable, Iterable, Sequence
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.nn.functional import interpolate
 
 from monai.config.type_definitions import NdarrayOrTensor
 from monai.data.meta_obj import get_track_meta
@@ -29,7 +30,7 @@ from monai.networks import one_hot
 from monai.networks.layers import GaussianFilter, apply_filter, separable_filtering
 from monai.transforms.inverse import InvertibleTransform
 from monai.transforms.transform import Transform
-from monai.transforms.utility.array import ToTensor, CastToType, EnsureType
+from monai.transforms.utility.array import CastToType, EnsureType, ToTensor
 from monai.transforms.utils import (
     convert_applied_interp_mode,
     fill_holes,
@@ -40,7 +41,6 @@ from monai.transforms.utils import (
 from monai.transforms.utils_pytorch_numpy_unification import unravel_index
 from monai.utils import TransformBackends, convert_data_type, convert_to_tensor, ensure_tuple, look_up_option
 from monai.utils.type_conversion import convert_to_dst_type
-from torch.nn.functional import interpolate
 
 __all__ = [
     "Activations",
@@ -144,19 +144,12 @@ class AppendDownsampled(Transform):
         downsampled_shapes: List of shapes of the downsampled tensors/arrays
 
     """
-    def __init__(
-            self,
-            downsampled_shapes,
-            mode='nearest',
-    ) -> None:
 
+    def __init__(self, downsampled_shapes, mode="nearest") -> None:
         self.downsampled_shapes = downsampled_shapes
         self.mode = mode
 
-    def __call__(self,
-                 img: NdarrayOrTensor,
-                 ) -> NdarrayOrTensor:
-
+    def __call__(self, img: NdarrayOrTensor) -> NdarrayOrTensor:
         img = convert_to_tensor(img, track_meta=get_track_meta())
 
         spatial_input_size = len(self.downsampled_shapes[0])
@@ -171,7 +164,9 @@ class AppendDownsampled(Transform):
         for s in self.downsampled_shapes:
             downsampled_img = interpolate(input=img, size=s, mode=self.mode)
 
-            downsampled_img = CastToType(dtype=np.uint8)(downsampled_img)  # TODO: restricts functions to work with uint8, check influence of removing this line
+            downsampled_img = CastToType(dtype=np.uint8)(
+                downsampled_img
+            )  # TODO: restricts functions to work with uint8, check influence of removing this line
             downsampled_img = EnsureType()(downsampled_img)
 
             ret.append(downsampled_img)

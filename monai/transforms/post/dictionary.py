@@ -32,6 +32,7 @@ from monai.data.meta_tensor import MetaTensor
 from monai.transforms.inverse import InvertibleTransform
 from monai.transforms.post.array import (
     Activations,
+    AppendDownsampled,
     AsDiscrete,
     FillHoles,
     KeepLargestConnectedComponent,
@@ -41,7 +42,7 @@ from monai.transforms.post.array import (
     ProbNMS,
     RemoveSmallObjects,
     SobelGradients,
-    VoteEnsemble, AppendDownsampled,
+    VoteEnsemble,
 )
 from monai.transforms.transform import MapTransform
 from monai.transforms.utility.array import ToTensor
@@ -150,12 +151,8 @@ class AppendDownsampledd(MapTransform):
     original tensor/array. This is useful for deep supervision where outputs of deep supervision heads can be of lower
     resolution.
     """
-    def __init__(
-            self,
-            keys: KeysCollection,
-            downsampled_shapes,
-            allow_missing_keys: bool = False,
-    ) -> None:
+
+    def __init__(self, keys: KeysCollection, downsampled_shapes, allow_missing_keys: bool = False) -> None:
         MapTransform.__init__(self, keys, allow_missing_keys)
         self.append_downsampled = AppendDownsampled(downsampled_shapes)
 
