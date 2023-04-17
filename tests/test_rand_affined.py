@@ -211,6 +211,43 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
         ]
     )
 
+    seg = MetaTensor(torch.arange(64).reshape((1, 8, 8)))
+    seg.meta['foreground_sample_locations'] = [[1, 2, 3], [2, 3, 4]]
+    TESTS.append(
+        [
+            dict(
+                prob=0.9,
+                mode=(GridSampleMode.BILINEAR, GridSampleMode.NEAREST),
+                rotate_range=(np.pi / 2,),
+                shear_range=[1, 2],
+                translate_range=[2, 1],
+                scale_range=[0.1, 0.2],
+                spatial_size=(3, 3),
+                foreground_oversampling_prob=0.9,
+                label_key_for_foreground_oversampling="seg",
+                cache_grid=True,
+                keys=("img", "seg"),
+                device=device,
+            ),
+            {
+                "img": MetaTensor(torch.arange(64).reshape((1, 8, 8))),
+                "seg": seg,
+            },
+            {
+                "img": MetaTensor(
+                    torch.tensor(
+                        [[[25.449093, 24.070652, 21.291996],
+                          [28.34988, 27.144796, 25.939713],
+                          [31.250668, 30.045584, 28.8405]]]
+                    )
+                ),
+                "seg": MetaTensor(torch.tensor([[[22., 23., 23.],
+                                                 [28., 30., 23.],
+                                                 [35., 28., 29.]]])),
+            },
+        ]
+    )
+
 
 class TestRandAffined(unittest.TestCase):
     @parameterized.expand(x + [y] for x, y in itertools.product(TESTS, (False, True)))
@@ -223,6 +260,8 @@ class TestRandAffined(unittest.TestCase):
         if track_meta and input_data["img"].ndim in (3, 4):
             if "mode" not in input_param.keys():
                 input_param["mode"] = "bilinear"
+            if "padding_mode" not in input_param.keys():
+                input_param["padding_mode"] = "reflection"
             if not isinstance(input_param["keys"], str):
                 input_param["mode"] = ensure_tuple_rep(input_param["mode"], len(input_param["keys"]))
             lazy_init_param = input_param.copy()
