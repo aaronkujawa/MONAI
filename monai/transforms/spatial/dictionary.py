@@ -834,6 +834,8 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
         mode: SequenceStr = GridSampleMode.BILINEAR,
         padding_mode: SequenceStr = GridSamplePadMode.REFLECTION,
         cache_grid: bool = False,
+        foreground_oversampling_prob: float = None,
+        label_key_for_foreground_oversampling: str = None,
         device: torch.device | None = None,
         allow_missing_keys: bool = False,
     ) -> None:
@@ -854,6 +856,8 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
                 This can be altered on a per-dimension basis. E.g., `((0,3), 1, ...)`: for dim0, rotation will be
                 in range `[0, 3]`, and for dim1 `[-1, 1]` will be used. Setting a single value will use `[-x, x]`
                 for dim0 and nothing for the remaining dimensions.
+            prob_rotate: probability to perform a random rotation. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random rotation is given by `prob`*`prob_rotate`.
             shear_range: shear range with format matching `rotate_range`, it defines the range to randomly select
                 shearing factors(a tuple of 2 floats for 2D, a tuple of 6 floats for 3D) for affine matrix,
                 take a 3D affine as example::
@@ -865,11 +869,17 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
                         [0.0, 0.0, 0.0, 1.0],
                     ]
 
+            prob_shear: probability to perform a random shearing. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random shearing is given by `prob`*`prob_shear`.
             translate_range: translate range with format matching `rotate_range`, it defines the range to randomly
                 select pixel/voxel to translate for every spatial dims.
+            prob_translate: probability to perform a random translation. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random translation is given by `prob`*`prob_translate`.
             scale_range: scaling range with format matching `rotate_range`. it defines the range to randomly select
                 the scale factor to translate for every spatial dims. A value of 1.0 is added to the result.
                 This allows 0 to correspond to no change (i.e., a scaling of 1.0).
+            prob_scale: probability to perform a random scaling. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random scaling is given by `prob`*`prob_scale`.
             mode: {``"bilinear"``, ``"nearest"``} or spline interpolation order 0-5 (integers).
                 Interpolation mode to calculate output values. Defaults to ``"bilinear"``.
                 See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
@@ -887,16 +897,33 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
             cache_grid: whether to cache the identity sampling grid.
                 If the spatial size is not dynamically defined by input image, enabling this option could
                 accelerate the transform.
+            foreground_oversampling_prob: probability to translate the center of the sampling grid to a foreground
+                location. When `foreground_oversampling_prob` is used, a translation to a foreground location consist of
+                a translation to a randomly selected sample of the list of foreground locations and a further random
+                translation based on prob_translate and translate_range. Final translation parameters are clipped to a
+                valid range which is defined such that for each spatial dimension the center of the grid cannot be
+                closer than half the grid size to the corner of the input image. In the case in which a translation to
+                a foreground location is not required, the translation parameters will be sampled uniformly within the
+                valid range. If `foreground_oversampling_prob` is `None`, the default behaviour without valid range
+                clipping is applied.
+            label_key_for_foreground_oversampling: key of metatensor whose metadata contains the list of foreground
+               locations. The list of foreground locations has to be stored under
+               data[label_key_for_foreground_oversampling].meta['foreground_sample_locations'].
+               `monai.transforms.SampleForegroundLocations` transform can be used to create and store the list of
+               foreground locations.
             device: device on which the tensor will be allocated.
             allow_missing_keys: don't raise exception if key is missing.
 
         See also:
             - :py:class:`monai.transforms.compose.MapTransform`
             - :py:class:`RandAffineGrid` for the random affine parameters configurations.
+            - :py:class:`monai.transforms.SampleForegroundLocations` to sample foreground locations and save in metadata
 
         """
         MapTransform.__init__(self, keys, allow_missing_keys)
         RandomizableTransform.__init__(self, prob)
+        self.label_key_for_foreground_oversampling = label_key_for_foreground_oversampling
+        self.foreground_oversampling_prob = foreground_oversampling_prob
         self.rand_affine = RandAffine(
             prob=1.0,  # because probability handled in this class
             rotate_range=rotate_range,
@@ -909,6 +936,7 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
             prob_scale=prob_scale,
             spatial_size=spatial_size,
             cache_grid=cache_grid,
+            foreground_oversampling_prob=foreground_oversampling_prob,
             device=device,
         )
         self.mode = ensure_tuple_rep(mode, len(self.keys))
@@ -936,7 +964,8 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
         self.rand_affine.randomize()
 
         item = d[first_key]
-        spatial_size = item.peek_pending_shape() if isinstance(item, MetaTensor) else item.shape[1:]
+        spatial_size = d[first_key].shape[1:]
+        # item.peek_pending_shape() if isinstance(item, MetaTensor) else item.shape[1:]
 
         sp_size = fall_back_tuple(self.rand_affine.spatial_size, spatial_size)
         # change image size or do random transform
@@ -946,7 +975,15 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
         if do_resampling:  # need to prepare grid
             grid = self.rand_affine.get_identity_grid(sp_size)
             if self._do_transform:  # add some random factors
-                grid = self.rand_affine.rand_affine_grid(sp_size, grid=grid)
+                if self.foreground_oversampling_prob is not None:
+                    fg_indices = d[self.label_key_for_foreground_oversampling].meta['foreground_sample_locations']
+                else:
+                    fg_indices = None
+
+                grid = self.rand_affine.rand_affine_grid(spatial_size=sp_size,
+                                                         grid=grid,
+                                                         image_size=spatial_size,
+                                                         fg_indices=fg_indices)
 
         for key, mode, padding_mode in self.key_iterator(d, self.mode, self.padding_mode):
             # do the transform
