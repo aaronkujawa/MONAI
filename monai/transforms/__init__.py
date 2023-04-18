@@ -384,6 +384,7 @@ from .spatial.array import (
     Rotate,
     Rotate90,
     Spacing,
+    RandSimulateLowResolution,
     SpatialResample,
     Zoom,
 )
@@ -451,6 +452,9 @@ from .spatial.dictionary import (
     Spacingd,
     SpacingD,
     SpacingDict,
+    RandSimulateLowResolutiond,
+    RandSimulateLowResolutionD,
+    RandSimulateLowResolutionDict,
     SpatialResampled,
     SpatialResampleD,
     SpatialResampleDict,

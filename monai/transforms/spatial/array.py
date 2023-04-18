@@ -27,7 +27,7 @@ import torch
 
 from monai.config import USE_COMPILED, DtypeLike
 from monai.config.type_definitions import NdarrayOrTensor
-from monai.data.meta_obj import get_track_meta
+from monai.data.meta_obj import get_track_meta, set_track_meta
 from monai.data.meta_tensor import MetaTensor
 from monai.data.utils import AFFINE_TOL, affine_to_spacing, compute_shape_offset, iter_patch, to_affine_nd, zoom_affine
 from monai.networks.layers import AffineTransform, GaussianFilter, grid_pull
@@ -114,6 +114,7 @@ __all__ = [
     "RandAffine",
     "Rand2DElastic",
     "Rand3DElastic",
+    "RandSimulateLowResolution",
 ]
 
 RandRange = Optional[Union[Sequence[Union[Tuple[float, float], float]], float]]
@@ -3371,3 +3372,95 @@ class RandGridPatch(GridPatch, RandomizableTransform, MultiSampleTrait):
         if randomize:
             self.randomize(array)
         return super().__call__(array)
+
+
+class RandSimulateLowResolution(RandomizableTransform):
+    """
+    Random simulation of low resolution corresponding to nnU-Net's SimulateLowResolutionTransform
+    (https://github.com/MIC-DKFZ/batchgenerators/blob/7651ece69faf55263dd582a9f5cbd149ed9c3ad0/batchgenerators/transforms/resample_transforms.py#L23)
+    First, the array/tensor is resampled at lower resolution as determined by the zoom_factor which is uniformly sampled
+    from the `zoom_range`. Then, the array/tensor is resampled at the original resolution.
+    """
+
+    backend = Affine.backend
+
+    def __init__(
+        self,
+        prob: float = 0.1,
+        downsample_mode: InterpolateMode | str = InterpolateMode.NEAREST,
+        upsample_mode: InterpolateMode | str = InterpolateMode.TRILINEAR,
+        zoom_range: Sequence = (0.5, 1.0),
+        align_corners=False,
+        device: Optional[torch.device] = None,
+    ) -> None:
+        """
+        Args:
+            prob: probability of performing this augmentation
+            downsample_mode: how to downsample
+            upsample_mode: how to upsample
+            zoom_range: range from which the random zoom factor for the downsampling operation is sampled. It determines
+                the shape of the downsampled tensor.
+            align_corners: his only has an effect when downsample_mode or upsample_mode  is 'linear', 'bilinear',
+                'bicubic' or 'trilinear'. Default: None.
+                See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
+                device: device on which the tensor will be allocated.
+
+        """
+        RandomizableTransform.__init__(self, prob)
+
+        self.downsample_mode = downsample_mode
+        self.upsample_mode = upsample_mode
+        self.zoom_range = zoom_range
+        self.align_corners = align_corners
+        self.device = device
+        self.zoom_factor = 1
+
+    def randomize(self, data: Optional[Any] = None) -> None:
+        super().randomize(None)
+        self.zoom_factor = self.R.uniform(self.zoom_range[0], self.zoom_range[1])
+        if not self._do_transform:
+            return None
+
+    def __call__(
+        self,
+        img: torch.Tensor,
+        randomize: bool = True,
+    ) -> torch.Tensor:
+        """
+        Args:
+            img: shape must be (num_channels, H, W[, D]),
+        """
+        if randomize:
+            self.randomize()
+
+        if self._do_transform:
+
+            input_shape = np.array(img.shape[1:])
+            target_shape = np.round(input_shape * self.zoom_factor).astype(np.int_)
+
+            resize_tfm_downsample = Resize(spatial_size=target_shape,
+                                           size_mode='all',
+                                           mode=self.downsample_mode,
+                                           anti_aliasing=False,
+                                           )
+
+            resize_tfm_upsample = Resize(spatial_size=input_shape,
+                                         size_mode='all',
+                                         mode=self.upsample_mode,
+                                         anti_aliasing=False,
+                                         align_corners=self.align_corners
+                                         )
+            # temporarily disable metadata tracking, since we do not want to invert the two Resize functions in post-processing
+            original_tack_meta_value = get_track_meta()
+            set_track_meta(False)
+
+            img_downsampled = resize_tfm_downsample(img)
+            img_upsampled = resize_tfm_upsample(img_downsampled)
+            set_track_meta(original_tack_meta_value)
+
+            img_upsampled = MetaTensor(img_upsampled)
+            img_upsampled.copy_meta_from(img)
+            return img_upsampled
+
+        else:
+            return img
