@@ -94,7 +94,7 @@ class AlgoEnsemble(ABC):
             datalist = ConfigParser.load_config_file(data_list_or_path)
             if data_key in datalist:
                 self.infer_files, _ = datafold_read(datalist=datalist, basedir=dataroot, fold=-1, key=data_key)
-            elif hasattr(self, "rank") and self.rank == 0:  # type: ignore
+            elif hasattr(self, "rank") and self.rank == 0:
                 logger.info(f"Datalist file has no testing key - {data_key}. No data for inference is specified")
 
         else:
@@ -112,6 +112,9 @@ class AlgoEnsemble(ABC):
         Returns:
             a tensor which is the ensembled prediction.
         """
+
+        if any(not p.is_cuda for p in preds):
+            preds = [p.cpu() for p in preds]  # ensure CPU if at least one is on CPU
 
         if self.mode == "mean":
             prob = MeanEnsemble()(preds)
@@ -560,23 +563,11 @@ class EnsembleRunner:
             logger.info(f"Ensembling on {self.device_setting['NUM_NODES']} nodes!")
             cmd = "python " if cmd is None else cmd
             cmd = f"{cmd} -m {base_cmd}"
-            _ = subprocess.run(
-                [
-                    "bcprun",
-                    "-n",
-                    str(self.device_setting["NUM_NODES"]),
-                    "-p",
-                    str(self.device_setting["n_devices"]),
-                    "-c",
-                    cmd,
-                ],
-                env=ps_environ,
-                check=True,
-            )
+            cmd = f"bcprun -n {self.device_setting['NUM_NODES']} -p {self.device_setting['n_devices']} -c {cmd}"
         else:
             logger.info(f"Ensembling using {self.device_setting['n_devices']} GPU!")
             if cmd is None:
                 cmd = f"torchrun --nnodes={1:d} --nproc_per_node={self.device_setting['n_devices']:d} "
             cmd = f"{cmd} -m {base_cmd}"
-            _ = subprocess.run(cmd.split(), env=ps_environ, check=True)
+        _ = subprocess.run(cmd.split(), env=ps_environ, check=True)
         return
