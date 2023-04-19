@@ -800,36 +800,65 @@ class ScaleIntensityRange(Transform):
 
 class AdjustContrast(Transform):
     """
-    Changes image intensity by gamma. Each pixel/voxel intensity is updated as::
+    Changes image intensity with gamma transform. Each pixel/voxel intensity is updated as::
 
         x = ((x - min) / intensity_range) ^ gamma * intensity_range + min
 
     Args:
         gamma: gamma value to adjust the contrast as function.
+        invert_image: multiplies all intensity values with -1 before gamma transform and again after gamma transform
+        retain_stats: applies a scaling factor and an offset to all intensity values after gamma transform to ensure
+            that the output intensity distribution has the same mean and standard deviation as the intensity
+            distribution of the input
     """
 
     backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
 
-    def __init__(self, gamma: float) -> None:
+    def __init__(self,
+                 gamma: float,
+                 invert_image: bool = False,
+                 retain_stats: bool = False) -> None:
+
         if not isinstance(gamma, (int, float)):
             raise ValueError(f"gamma must be a float or int number, got {type(gamma)} {gamma}.")
         self.gamma = gamma
+        self.invert_image = invert_image
+        self.retain_stats = retain_stats
 
     def __call__(self, img: NdarrayOrTensor) -> NdarrayOrTensor:
         """
         Apply the transform to `img`.
         """
         img = convert_to_tensor(img, track_meta=get_track_meta())
+
+        if self.invert_image:
+            img = -img
+
+        if self.retain_stats:
+            mn = img.mean()
+            sd = img.std()
+
         epsilon = 1e-7
         img_min = img.min()
         img_range = img.max() - img_min
         ret: NdarrayOrTensor = ((img - img_min) / float(img_range + epsilon)) ** self.gamma * img_range + img_min
+
+        if self.retain_stats:
+            # zero mean and normalize
+            ret = (ret - ret.mean())
+            ret = ret / (ret.std() + 1e-8)
+            # restore old mean and standard deviation
+            ret = sd*ret + mn
+
+        if self.invert_image:
+            ret = -ret
+
         return ret
 
 
 class RandAdjustContrast(RandomizableTransform):
     """
-    Randomly changes image intensity by gamma. Each pixel/voxel intensity is updated as::
+    Randomly changes image intensity with gamma transform. Each pixel/voxel intensity is updated as:
 
         x = ((x - min) / intensity_range) ^ gamma * intensity_range + min
 
@@ -837,11 +866,20 @@ class RandAdjustContrast(RandomizableTransform):
         prob: Probability of adjustment.
         gamma: Range of gamma values.
             If single number, value is picked from (0.5, gamma), default is (0.5, 4.5).
+        invert_image: multiplies all intensity values with -1 before gamma transform and again after gamma transform
+        retain_stats: applies a scaling factor and an offset to all intensity values after gamma transform to ensure
+            that the output intensity distribution has the same mean and standard deviation as the intensity
+            distribution of the input
     """
 
     backend = AdjustContrast.backend
 
-    def __init__(self, prob: float = 0.1, gamma: Sequence[float] | float = (0.5, 4.5)) -> None:
+    def __init__(self,
+                 prob: float = 0.1,
+                 gamma: Sequence[float] | float = (0.5, 4.5),
+                 invert_image: bool = False,
+                 retain_stats: bool = False,) \
+            -> None:
         RandomizableTransform.__init__(self, prob)
 
         if isinstance(gamma, (int, float)):
@@ -856,6 +894,8 @@ class RandAdjustContrast(RandomizableTransform):
             self.gamma = (min(gamma), max(gamma))
 
         self.gamma_value: float | None = None
+        self.invert_image: bool = invert_image
+        self.retain_stats: bool = retain_stats
 
     def randomize(self, data: Any | None = None) -> None:
         super().randomize(None)
@@ -876,7 +916,8 @@ class RandAdjustContrast(RandomizableTransform):
 
         if self.gamma_value is None:
             raise RuntimeError("gamma_value is not set, please call `randomize` function first.")
-        return AdjustContrast(self.gamma_value)(img)
+
+        return AdjustContrast(self.gamma_value, invert_image=self.invert_image, retain_stats=self.retain_stats)(img)
 
 
 class ScaleIntensityRangePercentiles(Transform):

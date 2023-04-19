@@ -798,7 +798,7 @@ class ScaleIntensityRanged(MapTransform):
 class AdjustContrastd(MapTransform):
     """
     Dictionary-based wrapper of :py:class:`monai.transforms.AdjustContrast`.
-    Changes image intensity by gamma. Each pixel/voxel intensity is updated as:
+    Changes image intensity with gamma transform. Each pixel/voxel intensity is updated as:
 
         `x = ((x - min) / intensity_range) ^ gamma * intensity_range + min`
 
@@ -806,14 +806,23 @@ class AdjustContrastd(MapTransform):
         keys: keys of the corresponding items to be transformed.
             See also: monai.transforms.MapTransform
         gamma: gamma value to adjust the contrast as function.
+        invert_image: multiplies all intensity values with -1 before gamma transform and again after gamma transform
+        retain_stats: applies a scaling factor and an offset to all intensity values after gamma transform to ensure
+            that the output intensity distribution has the same mean and standard deviation as the intensity
+            distribution of the input
         allow_missing_keys: don't raise exception if key is missing.
     """
 
     backend = AdjustContrast.backend
 
-    def __init__(self, keys: KeysCollection, gamma: float, allow_missing_keys: bool = False) -> None:
+    def __init__(self,
+                 keys: KeysCollection,
+                 gamma: float,
+                 invert_image: bool = False,
+                 retain_stats: bool = False,
+                 allow_missing_keys: bool = False) -> None:
         super().__init__(keys, allow_missing_keys)
-        self.adjuster = AdjustContrast(gamma)
+        self.adjuster = AdjustContrast(gamma, invert_image, retain_stats)
 
     def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
         d = dict(data)
@@ -825,7 +834,7 @@ class AdjustContrastd(MapTransform):
 class RandAdjustContrastd(RandomizableTransform, MapTransform):
     """
     Dictionary-based version :py:class:`monai.transforms.RandAdjustContrast`.
-    Randomly changes image intensity by gamma. Each pixel/voxel intensity is updated as:
+    Randomly changes image intensity with gamma transform. Each pixel/voxel intensity is updated as:
 
         `x = ((x - min) / intensity_range) ^ gamma * intensity_range + min`
 
@@ -835,6 +844,10 @@ class RandAdjustContrastd(RandomizableTransform, MapTransform):
         prob: Probability of adjustment.
         gamma: Range of gamma values.
             If single number, value is picked from (0.5, gamma), default is (0.5, 4.5).
+        invert_image: multiplies all intensity values with -1 before gamma transform and again after gamma transform
+        retain_stats: applies a scaling factor and an offset to all intensity values after gamma transform to ensure
+            that the output intensity distribution has the same mean and standard deviation as the intensity
+            distribution of the input
         allow_missing_keys: don't raise exception if key is missing.
     """
 
@@ -845,11 +858,14 @@ class RandAdjustContrastd(RandomizableTransform, MapTransform):
         keys: KeysCollection,
         prob: float = 0.1,
         gamma: tuple[float, float] | float = (0.5, 4.5),
+        invert_image: bool = False,
+        retain_stats: bool = False,
         allow_missing_keys: bool = False,
     ) -> None:
         MapTransform.__init__(self, keys, allow_missing_keys)
         RandomizableTransform.__init__(self, prob)
-        self.adjuster = RandAdjustContrast(gamma=gamma, prob=1.0)
+        self.adjuster = RandAdjustContrast(gamma=gamma, prob=1.0, invert_image=invert_image, retain_stats=retain_stats)
+        self.invert_image = invert_image
 
     def set_random_state(
         self, seed: int | None = None, state: np.random.RandomState | None = None
