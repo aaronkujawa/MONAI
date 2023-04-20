@@ -36,6 +36,7 @@ from .dataset import (
     LMDBDataset,
     NPZDictItemDataset,
     PersistentDataset,
+    PersistentStagedDataset,
     SmartCacheDataset,
     ZipDataset,
 )
@@ -100,6 +101,7 @@ from .utils import (
     partition_dataset,
     partition_dataset_classes,
     pickle_hashing,
+    pickle_hash_transform_names,
     rectify_header_sform_qform,
     remove_extra_metadata,
     remove_keys,

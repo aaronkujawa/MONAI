@@ -34,7 +34,7 @@ from torch.serialization import DEFAULT_PROTOCOL
 from torch.utils.data import Dataset as _TorchDataset
 from torch.utils.data import Subset
 
-from monai.data.utils import SUPPORTED_PICKLE_MOD, convert_tables_to_dicts, pickle_hashing
+from monai.data.utils import SUPPORTED_PICKLE_MOD, convert_tables_to_dicts, pickle_hashing, pickle_hash_transform_names
 from monai.transforms import (
     Compose,
     Randomizable,
@@ -415,6 +415,143 @@ class PersistentDataset(Dataset):
     def _transform(self, index: int):
         pre_random_item = self._cachecheck(self.data[index])
         return self._post_transform(pre_random_item)
+
+
+class PersistentStagedDataset(PersistentDataset):
+    def __init__(
+         self,
+         new_transform: Sequence[Callable] | Callable,
+         old_transform: Sequence[Callable] | Callable,
+         data: Sequence,
+         cache_dir: Path | str | None,
+         hash_func: Callable[..., bytes] = pickle_hashing,
+         pickle_module: str = "pickle",
+         pickle_protocol: int = DEFAULT_PROTOCOL,
+         hash_transform: Callable[..., bytes] | None = pickle_hash_transform_names,
+         reset_ops_id: bool = True,
+    ) -> None:
+
+        self.old_transform = old_transform
+        if not self.old_transform:
+            # if no old_transform is passed, create a normal PersistentDataset based on the new_transform
+            super().__init__(data, new_transform, cache_dir, hash_func, pickle_module, pickle_protocol, hash_transform,
+                             reset_ops_id)
+
+        else:
+            # if an old_transform is passed, create a normal PersistentDataset based on the old_transform
+            super().__init__(data, old_transform, cache_dir, hash_func, pickle_module, pickle_protocol, hash_transform,
+                             reset_ops_id)
+            self.new_transform = new_transform
+            if not isinstance(self.new_transform, Compose):
+                self.new_transform = Compose(new_transform)
+            self.new_transform_hash = ""
+
+            if hash_transform:
+                self.set_combined_transform_hash(hash_transform)
+
+    def set_combined_transform_hash(self, hash_xform_func: Callable[..., bytes]):
+        """Create a hash from the composition of old and new transforms. Hashable transforms
+        are deterministic transforms that inherit from `Transform`. We stop
+        at the first non-deterministic transform, or first that does not
+        inherit from MONAI's `Transform` class."""
+        hashable_transforms = []
+        for _tr in self.transform.flatten().transforms+self.new_transform.flatten().transforms:
+            if isinstance(_tr, RandomizableTrait) or not isinstance(_tr, Transform):
+                break
+            hashable_transforms.append(_tr)
+        # Try to hash. Fall back to a hash of their names
+        try:
+            transform_hash = hash_xform_func(hashable_transforms)
+        except TypeError as te:
+            if "is not JSON serializable" not in str(te):
+                raise te
+            names = "".join(tr.__class__.__name__ for tr in hashable_transforms)
+            transform_hash = hash_xform_func(names)
+        self.new_transform_hash = transform_hash.decode("utf-8")
+
+    def _update_cache(self, orig_item_transformed, item_transformed):
+        """Combine data hash with new transform hash, then load the transformed cached data, or if not found:
+         transform with new transform, then save under the new hash."""
+        hashfile = None
+        if self.cache_dir is not None:
+            new_data_item_md5 = self.hash_func(orig_item_transformed).decode("utf-8")
+            new_data_item_md5 += self.new_transform_hash
+            new_hashfile = self.cache_dir / f"{new_data_item_md5}.pt"
+
+        if new_hashfile is not None and new_hashfile.is_file():  # cache hit
+            try:
+                return torch.load(new_hashfile)
+            except PermissionError as e:
+                if sys.platform != "win32":
+                    raise e
+
+        # transform with new transform
+        _item_transformed = self._pre_transform(item_transformed)
+        if new_hashfile is None:
+            return _item_transformed
+        try:
+            # NOTE: Writing to a temporary directory and then using a nearly atomic rename operation
+            #       to make the cache more robust to manual killing of parent process
+            #       which may leave partially written cache files in an incomplete state
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                temp_hash_file = Path(tmpdirname) / new_hashfile.name
+                torch.save(
+                    obj=_item_transformed,
+                    f=temp_hash_file,
+                    pickle_module=look_up_option(self.pickle_module, SUPPORTED_PICKLE_MOD),
+                    pickle_protocol=self.pickle_protocol,
+                )
+                if temp_hash_file.is_file() and not new_hashfile.is_file():
+                    # On Unix, if target exists and is a file, it will be replaced silently if the user has permission.
+                    # for more details: https://docs.python.org/3/library/shutil.html#shutil.move.
+                    try:
+                        shutil.move(str(temp_hash_file), new_hashfile)
+                    except FileExistsError:
+                        pass
+        except PermissionError:  # project-monai/monai issue #3613
+            pass
+        return _item_transformed
+
+    def _hash_exists(self, data):
+        hashfile = None
+        if self.cache_dir is not None:
+            new_data_item_md5 = self.hash_func(data).decode("utf-8")
+            new_data_item_md5 += self.new_transform_hash
+            hashfile = self.cache_dir / f"{new_data_item_md5}.pt"
+
+        if hashfile is not None and hashfile.is_file():  # cache hit
+            return True
+        else:
+            return False
+
+    def _transform(self, index: int):
+
+        # check if new hashfile exists
+        if self.old_transform:
+            found_new_transform_hashfile = self._hash_exists(self.data[index])
+        else:
+            found_new_transform_hashfile = False
+
+        if found_new_transform_hashfile:  # if the new hashfile was found, skip the old transforms completely
+            # the following line makes sure that the subsequent transforms are based on new_transform rather than old_transform
+            self.transform = self.new_transform
+            pre_random_item = self._update_cache(self.data[index], item_transformed=None)
+        else:  # if the new hashfile was not found, the first transform has to be applied, or the corresponding hashfile loaded
+            # default behaviour of PersistentDataset (create and/or load first transform hashfile)
+            pre_random_item = self._cachecheck(self.data[index])
+            if self.old_transform:  # if an old_transform was provided, the new_transform has to update the pre_random_item (and save it in the cache)
+                # the following line makes sure that the subsequent transforms are based on new_transform rather than old_transform
+                self.transform = self.new_transform
+                # load the cached files and apply the new transform, then save the results with the new hash
+                pre_random_item = self._update_cache(self.data[index], pre_random_item)
+
+        out = self._post_transform(pre_random_item)
+
+        # make sure the transform is reset to the old_transform for the next iteration
+        if self.old_transform:
+            self.transform = self.old_transform
+
+        return out
 
 
 class CacheNTransDataset(PersistentDataset):

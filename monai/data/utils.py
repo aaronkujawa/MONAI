@@ -32,6 +32,7 @@ from torch.utils.data._utils.collate import default_collate
 from monai import config
 from monai.config.type_definitions import NdarrayOrTensor, NdarrayTensor, PathLike
 from monai.data.meta_obj import MetaObj
+import monai  # TODO: is there a better way to make Compose available here? from monai.transforms import Compose gives circular import error
 from monai.utils import (
     MAX_SEED,
     BlendMode,
@@ -80,6 +81,7 @@ __all__ = [
     "partition_dataset",
     "partition_dataset_classes",
     "pickle_hashing",
+    "pickle_hash_transform_names",
     "rectify_header_sform_qform",
     "reorient_spatial_axes",
     "resample_datalist",
@@ -1382,6 +1384,26 @@ def pickle_hashing(item, protocol=pickle.HIGHEST_PROTOCOL) -> bytes:
     """
     cache_key = hashlib.md5(pickle.dumps(sorted_dict(item), protocol=protocol)).hexdigest()
     return f"{cache_key}".encode()
+
+
+def pickle_hash_transform_names(hashable_transforms):
+    """
+    hash function for transforms based only on the function names.
+    This will produce the same hash even if the transform code changes between runs as long as the transform names
+    stay the same therefore, it is required to delete the cache_dir between runs, if the transforms change.
+    The original pickle_hashing function is not suitable since some transform's (e.g. AffineD) instances change
+    their hash after it is applied once (but it is required that the hash remains unchanged)
+
+    Args:
+        hashable_transforms: list of transforms whose names go into the pickle_hashing function
+
+    Returns: the corresponding hash key
+    """
+    if not isinstance(hashable_transforms, monai.transforms.Compose):
+        hashable_transforms = monai.transforms.Compose(hashable_transforms)
+    hashable_transforms = hashable_transforms.flatten().transforms
+    hash = pickle_hashing([h.__class__.__name__ for h in hashable_transforms])
+    return hash
 
 
 def sorted_dict(item, key=None, reverse=False):
