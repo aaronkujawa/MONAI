@@ -637,6 +637,22 @@ from .utility.dictionary import (
     TransposeD,
     TransposeDict,
 )
+from .interface.array import (
+    ANTsAffineRegistration,
+    ANTsApplyTransform,
+    BrainExtraction
+)
+from .interface.dictionary import (
+    ANTsAffineRegistrationd,
+    ANTsAffineRegistrationD,
+    ANTsAffineRegistrationDict,
+    ANTsApplyTransformd,
+    ANTsApplyTransformD,
+    ANTsApplyTransformDict,
+    BrainExtractiond,
+    BrainExtractionD,
+    BrainExtractionDict,
+)
 from .utils import (
     Fourier,
     allow_missing_keys_mode,
