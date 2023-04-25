@@ -36,7 +36,7 @@ from monai.utils import ensure_tuple
 from monai.utils.enums import AlgoKeys
 
 logger = get_logger(module_name=__name__)
-ALGO_HASH = os.environ.get("MONAI_ALGO_HASH", "e619d26")
+ALGO_HASH = os.environ.get("MONAI_ALGO_HASH", "23ea143")
 
 __all__ = ["BundleAlgo", "BundleGen"]
 
@@ -211,23 +211,36 @@ class BundleAlgo(Algo):
         if devices_info:
             warnings.warn(f"input devices_info {devices_info} is deprecated and ignored.")
 
-        logger.info(f"Launching: {cmd}")
         ps_environ = os.environ.copy()
         ps_environ["CUDA_VISIBLE_DEVICES"] = str(self.device_setting["CUDA_VISIBLE_DEVICES"])
         if int(self.device_setting["NUM_NODES"]) > 1:
             if self.device_setting["MN_START_METHOD"] == "bcprun":
-                cmd = f"bcprun -n {self.device_setting['NUM_NODES']} -p {self.device_setting['n_devices']} -c {cmd}"
+                cmd_list = [
+                    "bcprun",
+                    "-n",
+                    str(self.device_setting["NUM_NODES"]),
+                    "-p",
+                    str(self.device_setting["n_devices"]),
+                    "-c",
+                    cmd,
+                ]
             else:
                 raise NotImplementedError(
                     f"{self.device_setting['MN_START_METHOD']} is not supported yet. "
                     "Try modify BundleAlgo._run_cmd for your cluster."
                 )
-        cmd_list = cmd.split()
+        else:
+            cmd_list = cmd.split()
+
         _idx = 0
         for _idx, c in enumerate(cmd_list):
             if "=" not in c:  # remove variable assignments before the command such as "OMP_NUM_THREADS=1"
                 break
-        return subprocess.run(cmd_list[_idx:], env=ps_environ, check=True)
+        cmd_list = cmd_list[_idx:]
+
+        logger.info(f"Launching: {' '.join(cmd_list)}")
+
+        return subprocess.run(cmd_list, env=ps_environ, check=True)
 
     def train(
         self, train_params: None | dict = None, device_setting: None | dict = None
@@ -511,6 +524,7 @@ class BundleGen(AlgoGen):
         num_fold: int = 5,
         gpu_customization: bool = False,
         gpu_customization_specs: dict[str, Any] | None = None,
+        allow_skip: bool = True,
     ) -> None:
         """
         Generate the bundle scripts/configs for each bundleAlgo
@@ -524,6 +538,8 @@ class BundleGen(AlgoGen):
                 experiments.
             gpu_customization_specs (optinal): the dictionary to enable users overwrite the HPO settings. user can
                 overwrite part of variables as follows or all of them. The structure is as follows.
+            allow_skip: a switch to determine if some Algo in the default templates can be skipped based on the
+                analysis on the dataset from Auto3DSeg DataAnalyzer.
 
                 .. code-block:: python
 
@@ -553,10 +569,13 @@ class BundleGen(AlgoGen):
                 gen_algo.set_data_stats(data_stats)
                 gen_algo.set_data_source(data_src_cfg)
                 name = f"{gen_algo.name}_{f_id}"
-                skip_bundlegen, skip_info = gen_algo.pre_check_skip_algo()
-                if skip_bundlegen:
-                    logger.info(f"{name} is skipped! {skip_info}")
-                    continue
+
+                if allow_skip:
+                    skip_bundlegen, skip_info = gen_algo.pre_check_skip_algo()
+                    if skip_bundlegen:
+                        logger.info(f"{name} is skipped! {skip_info}")
+                        continue
+
                 if gpu_customization:
                     gen_algo.export_to_disk(
                         output_folder,
