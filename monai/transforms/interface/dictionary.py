@@ -184,7 +184,7 @@ class ANTsApplyTransformd(MapTransform):
                  input_file_path: str,
                  output_file_path: str,
                  use_inverse_trfm: bool,
-                 ) -> Dict[Hashable, NdarrayOrTensor]:
+                 ) -> dict[Hashable, NdarrayOrTensor]:
         """
         :param data: data dictionary that contains meta information about the paths of the affine transformation file
             and the path of the original image which is used as a reference for the resampling of transformed image.
