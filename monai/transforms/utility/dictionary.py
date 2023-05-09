@@ -54,6 +54,7 @@ from monai.transforms.utility.array import (
     MapLabelValue,
     RemoveRepeatedChannel,
     RepeatChannel,
+    SampleForegroundLocations,
     SimulateDelay,
     SplitDim,
     SqueezeDim,
@@ -63,7 +64,7 @@ from monai.transforms.utility.array import (
     ToPIL,
     TorchVision,
     ToTensor,
-    Transpose, SampleForegroundLocations,
+    Transpose,
 )
 from monai.transforms.utils import extreme_points_to_image, get_extreme_points
 from monai.transforms.utils_pytorch_numpy_unification import concatenate
@@ -1258,6 +1259,7 @@ class SampleForegroundLocationsd(MapTransform):
     """
     Dictionary-based version :py:class:`monai.transforms.SampleForegroundLocations`.
     """
+
     def __init__(
         self,
         label_keys: KeysCollection,
@@ -1278,7 +1280,7 @@ class SampleForegroundLocationsd(MapTransform):
         self.dtype = dtype
         self.sample_foreground_locations = SampleForegroundLocations(num_samples=num_samples, dtype=self.dtype)
 
-    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> Dict[Hashable, NdarrayOrTensor]:
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
         d = dict(data)
 
         for key in self.key_iterator(d):

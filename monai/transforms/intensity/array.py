@@ -571,13 +571,13 @@ class RandScaleIntensityFixedMean(RandomizableTransform):
     backend = ScaleIntensityFixedMean.backend
 
     def __init__(
-            self,
-            prob: float = 0.1,
-            factors: Sequence[float] | float = 0,
-            fixed_mean: bool = True,
-            preserve_range: bool = False,
-            dtype: DtypeLike = np.float32
-        ) -> None:
+        self,
+        prob: float = 0.1,
+        factors: Sequence[float] | float = 0,
+        fixed_mean: bool = True,
+        preserve_range: bool = False,
+        dtype: DtypeLike = np.float32,
+    ) -> None:
         """
         Args:
             factors: factor range to randomly scale by ``v = v * (1 + factor)``.
@@ -620,8 +620,9 @@ class RandScaleIntensityFixedMean(RandomizableTransform):
         if not self._do_transform:
             return convert_data_type(img, dtype=self.dtype)[0]
 
-        return ScaleIntensityFixedMean(factor=self.factor, fixed_mean=self.fixed_mean,
-                                       preserve_range=self.preserve_range, dtype=self.dtype)(img)
+        return ScaleIntensityFixedMean(
+            factor=self.factor, fixed_mean=self.fixed_mean, preserve_range=self.preserve_range, dtype=self.dtype
+        )(img)
 
 
 class RandScaleIntensity(RandomizableTransform):
@@ -971,11 +972,7 @@ class AdjustContrast(Transform):
 
     backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
 
-    def __init__(self,
-                 gamma: float,
-                 invert_image: bool = False,
-                 retain_stats: bool = False) -> None:
-
+    def __init__(self, gamma: float, invert_image: bool = False, retain_stats: bool = False) -> None:
         if not isinstance(gamma, (int, float)):
             raise ValueError(f"gamma must be a float or int number, got {type(gamma)} {gamma}.")
         self.gamma = gamma
@@ -1002,10 +999,10 @@ class AdjustContrast(Transform):
 
         if self.retain_stats:
             # zero mean and normalize
-            ret = (ret - ret.mean())
+            ret = ret - ret.mean()
             ret = ret / (ret.std() + 1e-8)
             # restore old mean and standard deviation
-            ret = sd*ret + mn
+            ret = sd * ret + mn
 
         if self.invert_image:
             ret = -ret
@@ -1031,12 +1028,13 @@ class RandAdjustContrast(RandomizableTransform):
 
     backend = AdjustContrast.backend
 
-    def __init__(self,
-                 prob: float = 0.1,
-                 gamma: Sequence[float] | float = (0.5, 4.5),
-                 invert_image: bool = False,
-                 retain_stats: bool = False,) \
-            -> None:
+    def __init__(
+        self,
+        prob: float = 0.1,
+        gamma: Sequence[float] | float = (0.5, 4.5),
+        invert_image: bool = False,
+        retain_stats: bool = False,
+    ) -> None:
         RandomizableTransform.__init__(self, prob)
 
         if isinstance(gamma, (int, float)):

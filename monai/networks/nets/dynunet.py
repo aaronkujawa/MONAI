@@ -273,7 +273,7 @@ class DynUNet(nn.Module):
     def forward(self, x):
         out = self.skip_layers(x)
         out = self.output_block(out)
-        if self.training and self.deep_supervision:
+        if self.training and self.deep_supervision and not self.return_list:
             out_all = torch.zeros(out.shape[0], len(self.heads) + 1, *out.shape[1:], device=out.device, dtype=out.dtype)
             out_all[:, 0] = out
             for idx, feature_map in enumerate(self.heads):

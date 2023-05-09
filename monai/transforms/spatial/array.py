@@ -1623,53 +1623,53 @@ class RandAffineGrid(Randomizable, LazyTransform):
         dtype: DtypeLike = np.float32,
     ) -> None:
         """
- rotate_range: angle range in radians. If element `i` is a pair of (min, max) values, then
-                `uniform[-rotate_range[i][0], rotate_range[i][1])` will be used to generate the rotation parameter
-                for the `i`th spatial dimension. If not, `uniform[-rotate_range[i], rotate_range[i])` will be used.
-                This can be altered on a per-dimension basis. E.g., `((0,3), 1, ...)`: for dim0, rotation will be
-                in range `[0, 3]`, and for dim1 `[-1, 1]` will be used. Setting a single value will use `[-x, x]`
-                for dim0 and nothing for the remaining dimensions.
-            prob_rotate: probability to perform a random rotation. This probability is evaluated after evaluating
-                `prob`, i.e., the total probability to perform a random rotation is given by `prob`*`prob_rotate`.
-            shear_range: shear range with format matching `rotate_range`, it defines the range to randomly select
-                shearing factors(a tuple of 2 floats for 2D, a tuple of 6 floats for 3D) for affine matrix,
-                take a 3D affine as example::
+        rotate_range: angle range in radians. If element `i` is a pair of (min, max) values, then
+                       `uniform[-rotate_range[i][0], rotate_range[i][1])` will be used to generate the rotation parameter
+                       for the `i`th spatial dimension. If not, `uniform[-rotate_range[i], rotate_range[i])` will be used.
+                       This can be altered on a per-dimension basis. E.g., `((0,3), 1, ...)`: for dim0, rotation will be
+                       in range `[0, 3]`, and for dim1 `[-1, 1]` will be used. Setting a single value will use `[-x, x]`
+                       for dim0 and nothing for the remaining dimensions.
+                   prob_rotate: probability to perform a random rotation. This probability is evaluated after evaluating
+                       `prob`, i.e., the total probability to perform a random rotation is given by `prob`*`prob_rotate`.
+                   shear_range: shear range with format matching `rotate_range`, it defines the range to randomly select
+                       shearing factors(a tuple of 2 floats for 2D, a tuple of 6 floats for 3D) for affine matrix,
+                       take a 3D affine as example::
 
-                    [
-                        [1.0, params[0], params[1], 0.0],
-                        [params[2], 1.0, params[3], 0.0],
-                        [params[4], params[5], 1.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0],
-                    ]
-            prob_shear: probability to perform a random shearing. This probability is evaluated after evaluating
-                `prob`, i.e., the total probability to perform a random shearing is given by `prob`*`prob_shear`.
-            translate_range: translate range with format matching `rotate_range`, it defines the range to randomly
-                select voxels to translate for every spatial dims.
-            prob_translate: probability to perform a random translation. This probability is evaluated after evaluating
-                `prob`, i.e., the total probability to perform a random translation is given by `prob`*`prob_translate`.
-            scale_range: scaling range with format matching `rotate_range`. it defines the range to randomly select
-                the scale factor to translate for every spatial dims. A value of 1.0 is added to the result.
-                This allows 0 to correspond to no change (i.e., a scaling of 1.0).
-            prob_scale: probability to perform a random scaling. This probability is evaluated after evaluating
-                `prob`, i.e., the total probability to perform a random scaling is given by `prob`*`prob_scale`.
-            foreground_oversampling_prob: probability to translate the center of the sampling grid to a foreground
-                location. When `foreground_oversampling_prob` is used, a translation to a foreground location consist of
-                a translation to a randomly selected sample of the list of foreground locations and a further random
-                translation based on prob_translate and translate_range. Final translation parameters are clipped to a
-                valid range which is defined such that for each spatial dimension the center of the grid cannot be
-                closer than half the grid size to the corner of the input image. In the case in which a translation to
-                a foreground location is not required, the translation parameters will be sampled uniformly within the
-                valid range. If `foreground_oversampling_prob` is `None`, the default behaviour without valid range
-                clipping is applied.
-            device: device to store the output grid data.
-            dtype: data type for the grid computation. Defaults to ``np.float32``.
-                If ``None``, use the data type of input data (if `grid` is provided).
+                           [
+                               [1.0, params[0], params[1], 0.0],
+                               [params[2], 1.0, params[3], 0.0],
+                               [params[4], params[5], 1.0, 0.0],
+                               [0.0, 0.0, 0.0, 1.0],
+                           ]
+                   prob_shear: probability to perform a random shearing. This probability is evaluated after evaluating
+                       `prob`, i.e., the total probability to perform a random shearing is given by `prob`*`prob_shear`.
+                   translate_range: translate range with format matching `rotate_range`, it defines the range to randomly
+                       select voxels to translate for every spatial dims.
+                   prob_translate: probability to perform a random translation. This probability is evaluated after evaluating
+                       `prob`, i.e., the total probability to perform a random translation is given by `prob`*`prob_translate`.
+                   scale_range: scaling range with format matching `rotate_range`. it defines the range to randomly select
+                       the scale factor to translate for every spatial dims. A value of 1.0 is added to the result.
+                       This allows 0 to correspond to no change (i.e., a scaling of 1.0).
+                   prob_scale: probability to perform a random scaling. This probability is evaluated after evaluating
+                       `prob`, i.e., the total probability to perform a random scaling is given by `prob`*`prob_scale`.
+                   foreground_oversampling_prob: probability to translate the center of the sampling grid to a foreground
+                       location. When `foreground_oversampling_prob` is used, a translation to a foreground location consist of
+                       a translation to a randomly selected sample of the list of foreground locations and a further random
+                       translation based on prob_translate and translate_range. Final translation parameters are clipped to a
+                       valid range which is defined such that for each spatial dimension the center of the grid cannot be
+                       closer than half the grid size to the corner of the input image. In the case in which a translation to
+                       a foreground location is not required, the translation parameters will be sampled uniformly within the
+                       valid range. If `foreground_oversampling_prob` is `None`, the default behaviour without valid range
+                       clipping is applied.
+                   device: device to store the output grid data.
+                   dtype: data type for the grid computation. Defaults to ``np.float32``.
+                       If ``None``, use the data type of input data (if `grid` is provided).
 
-        See also:
-            - :py:meth:`monai.transforms.utils.create_rotate`
-            - :py:meth:`monai.transforms.utils.create_shear`
-            - :py:meth:`monai.transforms.utils.create_translate`
-            - :py:meth:`monai.transforms.utils.create_scale`
+               See also:
+                   - :py:meth:`monai.transforms.utils.create_rotate`
+                   - :py:meth:`monai.transforms.utils.create_shear`
+                   - :py:meth:`monai.transforms.utils.create_translate`
+                   - :py:meth:`monai.transforms.utils.create_scale`
 
         """
         self.rotate_range = ensure_tuple(rotate_range)
@@ -1756,7 +1756,6 @@ class RandAffineGrid(Randomizable, LazyTransform):
         # if the foreground_oversampling_prob argument is used, the translation is determined by whether a foreground
         # location should initially be targeted, furthermore, any translation will be clipped to a "valid" range
         if self.foreground_oversampling_prob is not None:
-
             # define the margin at the image borders (where the center point is not supposed to end up) by half the patch size
             patch_size = np.array(grid.shape[1:] if grid is not None else spatial_size)
             if self.scale_params is not None:
@@ -1769,11 +1768,12 @@ class RandAffineGrid(Randomizable, LazyTransform):
             # in that case no translation should happen, so set those values to 0
             max_transl = np.array([max(tr, 0) for tr in max_transl])
 
-            if self.translate_to_foreground:  # first translate to foreground pixel, then add the random translation, then clip to valid range
-
+            if (
+                self.translate_to_foreground
+            ):  # first translate to foreground pixel, then add the random translation, then clip to valid range
                 # randomly pick one of the previously sampled foreground pixels to translate the center point of the grid to
                 # select one fg sample based on float randomized in randomize function
-                rand_int = int(np.round(self.rand_float_to_pick_fg_location*(len(fg_indices)-1)))
+                rand_int = int(np.round(self.rand_float_to_pick_fg_location * (len(fg_indices) - 1)))
                 random_fg_index = fg_indices[rand_int][1:]
 
                 # from this, calculate a translation to the fg point of a grid which is initially located at the image center
@@ -1781,20 +1781,23 @@ class RandAffineGrid(Randomizable, LazyTransform):
 
                 # add the additional random translation which was randomly selected from the translate_range
                 if self.translate_params is not None and self.translate_params != []:
-                    assert(len(translate_params_to_fg_point) == len(self.translate_params))
-                    translate_params = [t_fg + t_range for t_fg, t_range
-                                                 in zip(translate_params_to_fg_point, self.translate_params)]
+                    assert len(translate_params_to_fg_point) == len(self.translate_params)
+                    translate_params = [
+                        t_fg + t_range for t_fg, t_range in zip(translate_params_to_fg_point, self.translate_params)
+                    ]
                 else:
                     translate_params = translate_params_to_fg_point
 
             else:  # simply translate randomly within valid range (in this case, original translate_params are discarded)
                 # for each dimension, self.rand_norm_translate_params was randomly sampled between -1 and 1,
                 # now scale this value to the full range
-                translate_params = [max_transl[i]*self.rand_norm_translate_params[i] for i in range(len(max_transl))]
+                translate_params = [max_transl[i] * self.rand_norm_translate_params[i] for i in range(len(max_transl))]
 
             # if the current translation parameters exceed the max_transl, use max_transl in the corresponding direction instead
-            clipped_translate_params = [t_fg if abs(t_fg) <= t_max else t_fg / abs(t_fg) * t_max
-                                        for t_fg, t_max in zip(translate_params, max_transl)]
+            clipped_translate_params = [
+                t_fg if abs(t_fg) <= t_max else t_fg / abs(t_fg) * t_max
+                for t_fg, t_max in zip(translate_params, max_transl)
+            ]
 
             self.translate_params = list(clipped_translate_params)
 
@@ -3394,11 +3397,7 @@ class RandSimulateLowResolution(RandomizableTransform):
         if not self._do_transform:
             return None
 
-    def __call__(
-        self,
-        img: torch.Tensor,
-        randomize: bool = True,
-    ) -> torch.Tensor:
+    def __call__(self, img: torch.Tensor, randomize: bool = True) -> torch.Tensor:
         """
         Args:
             img: shape must be (num_channels, H, W[, D]),
@@ -3407,22 +3406,20 @@ class RandSimulateLowResolution(RandomizableTransform):
             self.randomize()
 
         if self._do_transform:
-
             input_shape = np.array(img.shape[1:])
             target_shape = np.round(input_shape * self.zoom_factor).astype(np.int_)
 
-            resize_tfm_downsample = Resize(spatial_size=target_shape,
-                                           size_mode='all',
-                                           mode=self.downsample_mode,
-                                           anti_aliasing=False,
-                                           )
+            resize_tfm_downsample = Resize(
+                spatial_size=target_shape, size_mode="all", mode=self.downsample_mode, anti_aliasing=False
+            )
 
-            resize_tfm_upsample = Resize(spatial_size=input_shape,
-                                         size_mode='all',
-                                         mode=self.upsample_mode,
-                                         anti_aliasing=False,
-                                         align_corners=self.align_corners
-                                         )
+            resize_tfm_upsample = Resize(
+                spatial_size=input_shape,
+                size_mode="all",
+                mode=self.upsample_mode,
+                anti_aliasing=False,
+                align_corners=self.align_corners,
+            )
             # temporarily disable metadata tracking, since we do not want to invert the two Resize functions in post-processing
             original_tack_meta_value = get_track_meta()
             set_track_meta(False)

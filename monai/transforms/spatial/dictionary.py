@@ -968,8 +968,7 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
         self.rand_affine.randomize()
 
         item = d[first_key]
-        spatial_size = d[first_key].shape[1:]
-        # item.peek_pending_shape() if isinstance(item, MetaTensor) else item.shape[1:]
+        spatial_size = item.peek_pending_shape() if isinstance(item, MetaTensor) else item.shape[1:]
 
         sp_size = fall_back_tuple(self.rand_affine.spatial_size, spatial_size)
         # change image size or do random transform
@@ -980,14 +979,13 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
             grid = self.rand_affine.get_identity_grid(sp_size)
             if self._do_transform:  # add some random factors
                 if self.foreground_oversampling_prob is not None:
-                    fg_indices = d[self.label_key_for_foreground_oversampling].meta['foreground_sample_locations']
+                    fg_indices = d[self.label_key_for_foreground_oversampling].meta["foreground_sample_locations"]
                 else:
                     fg_indices = None
 
-                grid = self.rand_affine.rand_affine_grid(spatial_size=sp_size,
-                                                         grid=grid,
-                                                         image_size=spatial_size,
-                                                         fg_indices=fg_indices)
+                grid = self.rand_affine.rand_affine_grid(
+                    spatial_size=sp_size, grid=grid, image_size=spatial_size, fg_indices=fg_indices
+                )
 
         for key, mode, padding_mode in self.key_iterator(d, self.mode, self.padding_mode):
             # do the transform
@@ -2199,12 +2197,15 @@ class RandSimulateLowResolutiond(RandomizableTransform, MapTransform):
         self.align_corners = align_corners
         self.device = device
 
-        self.sim_lowres_tfm = RandSimulateLowResolution(prob=1.0,  # probability is handled by dictionary class
-                                                        downsample_mode=self.downsample_mode,
-                                                        upsample_mode=self.upsample_mode,
-                                                        zoom_range=self.zoom_range,
-                                                        align_corners=self.align_corners,
-                                                        device=self.device)
+        self.sim_lowres_tfm = RandSimulateLowResolution(
+            prob=1.0,  # probability is handled by dictionary class
+            downsample_mode=self.downsample_mode,
+            upsample_mode=self.upsample_mode,
+            zoom_range=self.zoom_range,
+            align_corners=self.align_corners,
+            device=self.device,
+        )
+
     def set_random_state(
         self, seed: int | None = None, state: np.random.RandomState | None = None
     ) -> "RandSimulateLowResolutiond":
@@ -2220,7 +2221,7 @@ class RandSimulateLowResolutiond(RandomizableTransform, MapTransform):
 
         self.randomize(None)
 
-        for key, downsample_mode, upsample_mode in self.key_iterator(d, self.downsample_mode, self.upsample_mode):
+        for key in self.key_iterator(d):
             # do the transform
             if self._do_transform:
                 d[key] = self.sim_lowres_tfm(d[key])  # type: ignore

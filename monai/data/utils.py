@@ -32,7 +32,6 @@ from torch.utils.data._utils.collate import default_collate
 from monai import config
 from monai.config.type_definitions import NdarrayOrTensor, NdarrayTensor, PathLike
 from monai.data.meta_obj import MetaObj
-import monai  # TODO: is there a better way to make Compose available here? from monai.transforms import Compose gives circular import error
 from monai.utils import (
     MAX_SEED,
     BlendMode,
@@ -1399,8 +1398,10 @@ def pickle_hash_transform_names(hashable_transforms):
 
     Returns: the corresponding hash key
     """
-    if not isinstance(hashable_transforms, monai.transforms.Compose):
-        hashable_transforms = monai.transforms.Compose(hashable_transforms)
+    from monai.transforms import Compose  # needs to be here to avoid circular import
+
+    if not isinstance(hashable_transforms, Compose):
+        hashable_transforms = Compose(hashable_transforms)
     hashable_transforms = hashable_transforms.flatten().transforms
     hash = pickle_hashing([h.__class__.__name__ for h in hashable_transforms])
     return hash

@@ -69,13 +69,19 @@ class TestDataset(unittest.TestCase):
                 pickle_protocol=pickle.HIGHEST_PROTOCOL,
             )
             self.assertEqual(items, [[[]], [[0]], [[0, 1]], [[0, 1, 2]], [[0, 1, 2, 3]]])
-            ds1 = PersistentStagedDataset(data=items, new_transform=_InplaceXform(), old_transform=None, cache_dir=tempdir)
+            ds1 = PersistentStagedDataset(
+                data=items, new_transform=_InplaceXform(), old_transform=None, cache_dir=tempdir
+            )
             self.assertEqual(list(ds1), list(ds))
             self.assertEqual(items, [[[]], [[0]], [[0, 1]], [[0, 1, 2]], [[0, 1, 2, 3]]])
 
-            ds = PersistentStagedDataset(data=items, new_transform=_InplaceXform(), old_transform=None, cache_dir=tempdir, hash_func=json_hashing)
+            ds = PersistentStagedDataset(
+                data=items, new_transform=_InplaceXform(), old_transform=None, cache_dir=tempdir, hash_func=json_hashing
+            )
             self.assertEqual(items, [[[]], [[0]], [[0, 1]], [[0, 1, 2]], [[0, 1, 2, 3]]])
-            ds1 = PersistentStagedDataset(data=items, new_transform=_InplaceXform(), old_transform=None, cache_dir=tempdir, hash_func=json_hashing)
+            ds1 = PersistentStagedDataset(
+                data=items, new_transform=_InplaceXform(), old_transform=None, cache_dir=tempdir, hash_func=json_hashing
+            )
             self.assertEqual(list(ds1), list(ds))
             self.assertEqual(items, [[[]], [[0]], [[0, 1]], [[0, 1, 2]], [[0, 1, 2, 3]]])
 
@@ -103,13 +109,15 @@ class TestDataset(unittest.TestCase):
             ]
 
             cache_dir = os.path.join(os.path.join(tempdir, "cache"), "data")
-            dataset_precached = PersistentStagedDataset(data=test_data, new_transform=transform, old_transform=None,
-                                                        cache_dir=cache_dir)
+            dataset_precached = PersistentStagedDataset(
+                data=test_data, new_transform=transform, old_transform=None, cache_dir=cache_dir
+            )
             data1_precached = dataset_precached[0]
             data2_precached = dataset_precached[1]
 
-            dataset_postcached = PersistentStagedDataset(data=test_data, new_transform=transform, old_transform=None,
-                                                         cache_dir=cache_dir)
+            dataset_postcached = PersistentStagedDataset(
+                data=test_data, new_transform=transform, old_transform=None, cache_dir=cache_dir
+            )
             data1_postcached = dataset_postcached[0]
             data2_postcached = dataset_postcached[1]
             data3_postcached = dataset_postcached[0:2]
@@ -171,6 +179,7 @@ class TestDataset(unittest.TestCase):
 
     class FlipCallCheck(Flip):
         """wrapper for Flip transform that keeps track of how many times the transform was called"""
+
         call_counter = 0
 
         def __call__(self, *args, **kwargs):

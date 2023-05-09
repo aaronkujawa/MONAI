@@ -34,7 +34,7 @@ from torch.serialization import DEFAULT_PROTOCOL
 from torch.utils.data import Dataset as _TorchDataset
 from torch.utils.data import Subset
 
-from monai.data.utils import SUPPORTED_PICKLE_MOD, convert_tables_to_dicts, pickle_hashing, pickle_hash_transform_names
+from monai.data.utils import SUPPORTED_PICKLE_MOD, convert_tables_to_dicts, pickle_hash_transform_names, pickle_hashing
 from monai.transforms import (
     Compose,
     Randomizable,
@@ -419,28 +419,29 @@ class PersistentDataset(Dataset):
 
 class PersistentStagedDataset(PersistentDataset):
     def __init__(
-         self,
-         new_transform: Sequence[Callable] | Callable,
-         old_transform: Sequence[Callable] | Callable,
-         data: Sequence,
-         cache_dir: Path | str | None,
-         hash_func: Callable[..., bytes] = pickle_hashing,
-         pickle_module: str = "pickle",
-         pickle_protocol: int = DEFAULT_PROTOCOL,
-         hash_transform: Callable[..., bytes] | None = pickle_hash_transform_names,
-         reset_ops_id: bool = True,
+        self,
+        new_transform: Sequence[Callable] | Callable,
+        old_transform: Sequence[Callable] | Callable,
+        data: Sequence,
+        cache_dir: Path | str | None,
+        hash_func: Callable[..., bytes] = pickle_hashing,
+        pickle_module: str = "pickle",
+        pickle_protocol: int = DEFAULT_PROTOCOL,
+        hash_transform: Callable[..., bytes] | None = pickle_hash_transform_names,
+        reset_ops_id: bool = True,
     ) -> None:
-
         self.old_transform = old_transform
         if not self.old_transform:
             # if no old_transform is passed, create a normal PersistentDataset based on the new_transform
-            super().__init__(data, new_transform, cache_dir, hash_func, pickle_module, pickle_protocol, hash_transform,
-                             reset_ops_id)
+            super().__init__(
+                data, new_transform, cache_dir, hash_func, pickle_module, pickle_protocol, hash_transform, reset_ops_id
+            )
 
         else:
             # if an old_transform is passed, create a normal PersistentDataset based on the old_transform
-            super().__init__(data, old_transform, cache_dir, hash_func, pickle_module, pickle_protocol, hash_transform,
-                             reset_ops_id)
+            super().__init__(
+                data, old_transform, cache_dir, hash_func, pickle_module, pickle_protocol, hash_transform, reset_ops_id
+            )
             self.new_transform = new_transform
             if not isinstance(self.new_transform, Compose):
                 self.new_transform = Compose(new_transform)
@@ -455,7 +456,7 @@ class PersistentStagedDataset(PersistentDataset):
         at the first non-deterministic transform, or first that does not
         inherit from MONAI's `Transform` class."""
         hashable_transforms = []
-        for _tr in self.transform.flatten().transforms+self.new_transform.flatten().transforms:
+        for _tr in self.transform.flatten().transforms + self.new_transform.flatten().transforms:
             if isinstance(_tr, RandomizableTrait) or not isinstance(_tr, Transform):
                 break
             hashable_transforms.append(_tr)
@@ -471,8 +472,7 @@ class PersistentStagedDataset(PersistentDataset):
 
     def _update_cache(self, orig_item_transformed, item_transformed):
         """Combine data hash with new transform hash, then load the transformed cached data, or if not found:
-         transform with new transform, then save under the new hash."""
-        hashfile = None
+        transform with new transform, then save under the new hash."""
         if self.cache_dir is not None:
             new_data_item_md5 = self.hash_func(orig_item_transformed).decode("utf-8")
             new_data_item_md5 += self.new_transform_hash
@@ -525,7 +525,6 @@ class PersistentStagedDataset(PersistentDataset):
             return False
 
     def _transform(self, index: int):
-
         # check if new hashfile exists
         if self.old_transform:
             found_new_transform_hashfile = self._hash_exists(self.data[index])
@@ -539,7 +538,9 @@ class PersistentStagedDataset(PersistentDataset):
         else:  # if the new hashfile was not found, the first transform has to be applied, or the corresponding hashfile loaded
             # default behaviour of PersistentDataset (create and/or load first transform hashfile)
             pre_random_item = self._cachecheck(self.data[index])
-            if self.old_transform:  # if an old_transform was provided, the new_transform has to update the pre_random_item (and save it in the cache)
+            if (
+                self.old_transform
+            ):  # if an old_transform was provided, the new_transform has to update the pre_random_item (and save it in the cache)
                 # the following line makes sure that the subsequent transforms are based on new_transform rather than old_transform
                 self.transform = self.new_transform
                 # load the cached files and apply the new transform, then save the results with the new hash
