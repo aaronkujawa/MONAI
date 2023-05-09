@@ -1623,53 +1623,54 @@ class RandAffineGrid(Randomizable, LazyTransform):
         dtype: DtypeLike = np.float32,
     ) -> None:
         """
-        rotate_range: angle range in radians. If element `i` is a pair of (min, max) values, then
-                       `uniform[-rotate_range[i][0], rotate_range[i][1])` will be used to generate the rotation parameter
-                       for the `i`th spatial dimension. If not, `uniform[-rotate_range[i], rotate_range[i])` will be used.
-                       This can be altered on a per-dimension basis. E.g., `((0,3), 1, ...)`: for dim0, rotation will be
-                       in range `[0, 3]`, and for dim1 `[-1, 1]` will be used. Setting a single value will use `[-x, x]`
-                       for dim0 and nothing for the remaining dimensions.
-                   prob_rotate: probability to perform a random rotation. This probability is evaluated after evaluating
-                       `prob`, i.e., the total probability to perform a random rotation is given by `prob`*`prob_rotate`.
-                   shear_range: shear range with format matching `rotate_range`, it defines the range to randomly select
-                       shearing factors(a tuple of 2 floats for 2D, a tuple of 6 floats for 3D) for affine matrix,
-                       take a 3D affine as example::
+        Args:
+            rotate_range: angle range in radians. If element `i` is a pair of (min, max) values, then
+                `uniform[-rotate_range[i][0], rotate_range[i][1])` will be used to generate the rotation parameter
+                for the `i`th spatial dimension. If not, `uniform[-rotate_range[i], rotate_range[i])` will be used.
+                This can be altered on a per-dimension basis. E.g., `((0,3), 1, ...)`: for dim0, rotation will be
+                in range `[0, 3]`, and for dim1 `[-1, 1]` will be used. Setting a single value will use `[-x, x]`
+                for dim0 and nothing for the remaining dimensions.
+            prob_rotate: probability to perform a random rotation. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random rotation is given by `prob`*`prob_rotate`.
+            shear_range: shear range with format matching `rotate_range`, it defines the range to randomly select
+                shearing factors(a tuple of 2 floats for 2D, a tuple of 6 floats for 3D) for affine matrix,
+                take a 3D affine as example::
 
-                           [
-                               [1.0, params[0], params[1], 0.0],
-                               [params[2], 1.0, params[3], 0.0],
-                               [params[4], params[5], 1.0, 0.0],
-                               [0.0, 0.0, 0.0, 1.0],
-                           ]
-                   prob_shear: probability to perform a random shearing. This probability is evaluated after evaluating
-                       `prob`, i.e., the total probability to perform a random shearing is given by `prob`*`prob_shear`.
-                   translate_range: translate range with format matching `rotate_range`, it defines the range to randomly
-                       select voxels to translate for every spatial dims.
-                   prob_translate: probability to perform a random translation. This probability is evaluated after evaluating
-                       `prob`, i.e., the total probability to perform a random translation is given by `prob`*`prob_translate`.
-                   scale_range: scaling range with format matching `rotate_range`. it defines the range to randomly select
-                       the scale factor to translate for every spatial dims. A value of 1.0 is added to the result.
-                       This allows 0 to correspond to no change (i.e., a scaling of 1.0).
-                   prob_scale: probability to perform a random scaling. This probability is evaluated after evaluating
-                       `prob`, i.e., the total probability to perform a random scaling is given by `prob`*`prob_scale`.
-                   foreground_oversampling_prob: probability to translate the center of the sampling grid to a foreground
-                       location. When `foreground_oversampling_prob` is used, a translation to a foreground location consist of
-                       a translation to a randomly selected sample of the list of foreground locations and a further random
-                       translation based on prob_translate and translate_range. Final translation parameters are clipped to a
-                       valid range which is defined such that for each spatial dimension the center of the grid cannot be
-                       closer than half the grid size to the corner of the input image. In the case in which a translation to
-                       a foreground location is not required, the translation parameters will be sampled uniformly within the
-                       valid range. If `foreground_oversampling_prob` is `None`, the default behaviour without valid range
-                       clipping is applied.
-                   device: device to store the output grid data.
-                   dtype: data type for the grid computation. Defaults to ``np.float32``.
-                       If ``None``, use the data type of input data (if `grid` is provided).
+                    [
+                        [1.0, params[0], params[1], 0.0],
+                        [params[2], 1.0, params[3], 0.0],
+                        [params[4], params[5], 1.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0],
+                    ]
+            prob_shear: probability to perform a random shearing. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random shearing is given by `prob`*`prob_shear`.
+            translate_range: translate range with format matching `rotate_range`, it defines the range to randomly
+                select voxels to translate for every spatial dims.
+            prob_translate: probability to perform a random translation. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random translation is given by `prob`*`prob_translate`.
+            scale_range: scaling range with format matching `rotate_range`. it defines the range to randomly select
+                the scale factor to translate for every spatial dims. A value of 1.0 is added to the result.
+                This allows 0 to correspond to no change (i.e., a scaling of 1.0).
+            prob_scale: probability to perform a random scaling. This probability is evaluated after evaluating
+                `prob`, i.e., the total probability to perform a random scaling is given by `prob`*`prob_scale`.
+            foreground_oversampling_prob: probability to translate the center of the sampling grid to a foreground
+                location. When `foreground_oversampling_prob` is used, a translation to a foreground location consist of
+                a translation to a randomly selected sample of the list of foreground locations and a further random
+                translation based on prob_translate and translate_range. Final translation parameters are clipped to a
+                valid range which is defined such that for each spatial dimension the center of the grid cannot be
+                closer than half the grid size to the corner of the input image. In the case in which a translation to
+                a foreground location is not required, the translation parameters will be sampled uniformly within the
+                valid range. If `foreground_oversampling_prob` is `None`, the default behaviour without valid range
+                clipping is applied.
+            device: device to store the output grid data.
+            dtype: data type for the grid computation. Defaults to ``np.float32``.
+                If ``None``, use the data type of input data (if `grid` is provided).
 
-               See also:
-                   - :py:meth:`monai.transforms.utils.create_rotate`
-                   - :py:meth:`monai.transforms.utils.create_shear`
-                   - :py:meth:`monai.transforms.utils.create_translate`
-                   - :py:meth:`monai.transforms.utils.create_scale`
+            See also:
+                - :py:meth:`monai.transforms.utils.create_rotate`
+                - :py:meth:`monai.transforms.utils.create_shear`
+                - :py:meth:`monai.transforms.utils.create_translate`
+                - :py:meth:`monai.transforms.utils.create_scale`
 
         """
         self.rotate_range = ensure_tuple(rotate_range)
