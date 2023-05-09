@@ -18,10 +18,8 @@ Class names are ended with 'd' to denote dictionary-based transforms.
 from __future__ import annotations
 
 import os
-
 from collections.abc import Hashable, Mapping
 from copy import deepcopy
-
 
 from monai.config import KeysCollection
 from monai.config.type_definitions import NdarrayOrTensor
@@ -51,15 +49,16 @@ class ANTsAffineRegistrationd(MapTransform):
     file and the path to the new file is returned. Advanced Normalization Tools (ANTs) is required for this
     transform.
     """
+
     def __init__(
-            self,
-            keys: KeysCollection,
-            moving_img_key: str,
-            meta_keys: KeysCollection | None = None,
-            meta_key_postfix: str = "meta_dict",
-            allow_missing_keys: bool = False,
-            output_folder_path: str = None,
-            template_path: str = None,
+        self,
+        keys: KeysCollection,
+        moving_img_key: str,
+        meta_keys: KeysCollection | None = None,
+        meta_key_postfix: str = "meta_dict",
+        allow_missing_keys: bool = False,
+        output_folder_path: str = None,
+        template_path: str = None,
     ) -> None:
         """
         :param keys: keys of the corresponding items to be transformed. See also:
@@ -84,7 +83,7 @@ class ANTsAffineRegistrationd(MapTransform):
         self.output_folder_path = output_folder_path
         self.template_path = template_path
 
-        assert(moving_img_key in keys), f"moving_image_key ({moving_img_key}) has to be in keys ({keys})..."
+        assert moving_img_key in keys, f"moving_image_key ({moving_img_key}) has to be in keys ({keys})..."
         self.moving_img_key_idx = list(keys).index(moving_img_key)
 
         self.ANTsAffineRegistration = ANTsAffineRegistration(template_path=template_path)
@@ -104,7 +103,9 @@ class ANTsAffineRegistrationd(MapTransform):
 
         # define paths where ANTs should save the registered image and affine transform matrix file
         mni_space_folder = self.output_folder_path
-        mni_space_img_filename = os.path.basename(original_space_image_path).replace(".nii.gz", "_ANTsregistered.nii.gz")
+        mni_space_img_filename = os.path.basename(original_space_image_path).replace(
+            ".nii.gz", "_ANTsregistered.nii.gz"
+        )
         mni_space_img_path = os.path.join(mni_space_folder, mni_space_img_filename)
         output_affine_path = mni_space_img_path.replace(".nii.gz", "_")
 
@@ -112,9 +113,11 @@ class ANTsAffineRegistrationd(MapTransform):
         d[key] = self.ANTsAffineRegistration(original_space_image_path, mni_space_img_path, output_affine_path)
 
         # store paths in metadata
-        d[meta_key + '_original_space_image_path'] = original_space_image_path
-        output_affine_path = output_affine_path + "0GenericAffine.mat"  # This last part of the path is always added by ANTs
-        d[meta_key + '_affine_trfm_file_path'] = output_affine_path
+        d[meta_key + "_original_space_image_path"] = original_space_image_path
+        output_affine_path = (
+            output_affine_path + "0GenericAffine.mat"
+        )  # This last part of the path is always added by ANTs
+        d[meta_key + "_affine_trfm_file_path"] = output_affine_path
 
         # apply the saved transform to all other keys
         for key, meta_key, meta_key_postfix in self.key_iterator(d, self.meta_keys, self.meta_key_postfix):
@@ -128,20 +131,23 @@ class ANTsAffineRegistrationd(MapTransform):
 
             # define paths where ANTs should save the registered image and affine transform matrix file
             mni_space_folder = self.output_folder_path
-            mni_space_img_filename = os.path.basename(original_space_image_path).replace(".nii.gz", "_ANTsregistered.nii.gz")
+            mni_space_img_filename = os.path.basename(original_space_image_path).replace(
+                ".nii.gz", "_ANTsregistered.nii.gz"
+            )
             mni_space_img_path = os.path.join(mni_space_folder, mni_space_img_filename)
 
             # store paths in metadata
-            d[meta_key+'_original_space_image_path'] = original_space_image_path
-            d[meta_key + '_affine_trfm_file_path'] = output_affine_path
+            d[meta_key + "_original_space_image_path"] = original_space_image_path
+            d[meta_key + "_affine_trfm_file_path"] = output_affine_path
 
             # this transformation will create a new Nifti-file with a registered image and return the path to it
-            d[key] = self.ANTsApplyTransform(input_file_path=original_space_image_path,  # Path to the input image
-                                             affine_trfm_file_path=output_affine_path,  # saved above
-                                             reference_image_path=self.template_path,  # reference for resampling operation
-                                             output_file_path=mni_space_img_path,  # Path to registered/resampled image
-                                             use_inverse_trfm=False,
-                                             )
+            d[key] = self.ANTsApplyTransform(
+                input_file_path=original_space_image_path,  # Path to the input image
+                affine_trfm_file_path=output_affine_path,  # saved above
+                reference_image_path=self.template_path,  # reference for resampling operation
+                output_file_path=mni_space_img_path,  # Path to registered/resampled image
+                use_inverse_trfm=False,
+            )
         return d
 
 
@@ -154,11 +160,11 @@ class ANTsApplyTransformd(MapTransform):
     """
 
     def __init__(
-            self,
-            keys: KeysCollection,
-            meta_keys: KeysCollection | None = None,
-            meta_key_postfix: str = "meta_dict",
-            allow_missing_keys: bool = False,
+        self,
+        keys: KeysCollection,
+        meta_keys: KeysCollection | None = None,
+        meta_key_postfix: str = "meta_dict",
+        allow_missing_keys: bool = False,
     ) -> None:
         """
         :param keys: keys of the corresponding items to be transformed. See also:
@@ -179,12 +185,13 @@ class ANTsApplyTransformd(MapTransform):
 
         self.ANTsApplyTransform = ANTsApplyTransform()
 
-    def __call__(self,
-                 data: Mapping[Hashable, NdarrayOrTensor],
-                 input_file_path: str,
-                 output_file_path: str,
-                 use_inverse_trfm: bool,
-                 ) -> dict[Hashable, NdarrayOrTensor]:
+    def __call__(
+        self,
+        data: Mapping[Hashable, NdarrayOrTensor],
+        input_file_path: str,
+        output_file_path: str,
+        use_inverse_trfm: bool,
+    ) -> dict[Hashable, NdarrayOrTensor]:
         """
         :param data: data dictionary that contains meta information about the paths of the affine transformation file
             and the path of the original image which is used as a reference for the resampling of transformed image.
@@ -198,15 +205,17 @@ class ANTsApplyTransformd(MapTransform):
             meta_key = meta_key or f"{key}_{meta_key_postfix}"
 
             # get the original image path
-            aff_path = d[meta_key + '_affine_trfm_file_path']
-            ref_path = d[meta_key + '_original_space_image_path']
+            aff_path = d[meta_key + "_affine_trfm_file_path"]
+            ref_path = d[meta_key + "_original_space_image_path"]
 
             # this transformation will create a new Nifti-file with a registered image and return the path to it
-            d[key] = self.ANTsApplyTransform(input_file_path=input_file_path,
-                                             affine_trfm_file_path=aff_path,
-                                             reference_image_path=ref_path,
-                                             output_file_path=output_file_path,
-                                             use_inverse_trfm=True)
+            d[key] = self.ANTsApplyTransform(
+                input_file_path=input_file_path,
+                affine_trfm_file_path=aff_path,
+                reference_image_path=ref_path,
+                output_file_path=output_file_path,
+                use_inverse_trfm=True,
+            )
         return d
 
 
@@ -216,13 +225,14 @@ class BrainExtractiond(MapTransform):
     .BrainExtraction`.
     Uses HD-BET to perform brain extraction.
     """
+
     def __init__(
-            self,
-            keys: KeysCollection,
-            meta_keys: KeysCollection | None = None,
-            meta_key_postfix: str = "meta_dict",
-            allow_missing_keys: bool = False,
-            output_folder_path: str = None,
+        self,
+        keys: KeysCollection,
+        meta_keys: KeysCollection | None = None,
+        meta_key_postfix: str = "meta_dict",
+        allow_missing_keys: bool = False,
+        output_folder_path: str = None,
     ) -> None:
         """
         :param keys: keys of the corresponding items to be transformed. See also:
@@ -258,7 +268,7 @@ class BrainExtractiond(MapTransform):
             stripped_img_path = os.path.join(stripped_images_folder, stripped_img_filename)
 
             # store paths in metadata
-            d[meta_key+'_original_image_path'] = original_image_path
+            d[meta_key + "_original_image_path"] = original_image_path
 
             # this transformation will create a new Nifti-file with a brain-extracted image and return the path to it
             d[key] = self.brainExtraction(original_image_path, stripped_img_path)

@@ -26,10 +26,7 @@ for invert_image in (True, False):
         TEST_CASE_2 = [0.5, invert_image, retain_stats]
         TEST_CASE_3 = [4.5, invert_image, retain_stats]
 
-        TESTS.extend([TEST_CASE_1,
-                      TEST_CASE_2,
-                      TEST_CASE_3,
-                      ])
+        TESTS.extend([TEST_CASE_1, TEST_CASE_2, TEST_CASE_3])
 
 
 class TestAdjustContrast(NumpyImageTestCase2D):
@@ -43,7 +40,6 @@ class TestAdjustContrast(NumpyImageTestCase2D):
             if False:  # gamma == 1.0:
                 expected = self.imt
             else:
-
                 if invert_image:
                     self.imt = -self.imt
 
@@ -59,7 +55,7 @@ class TestAdjustContrast(NumpyImageTestCase2D):
 
                 if retain_stats:
                     # zero mean and normalize
-                    expected = (expected - expected.mean())
+                    expected = expected - expected.mean()
                     expected = expected / (expected.std() + 1e-8)
                     # restore old mean and standard deviation
                     expected = sd * expected + mn

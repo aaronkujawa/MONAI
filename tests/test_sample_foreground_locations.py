@@ -22,14 +22,7 @@ from tests.utils import TEST_NDARRAYS, assert_allclose
 TEST_CASES = []
 for p in TEST_NDARRAYS:
     for num_samples in [20, 30]:
-        TEST_CASES.append(
-            [
-                {"num_samples": num_samples},
-                p(np.ones([10, 10, 9])),
-                p(np.ones([10, 10, 9])),
-                num_samples,
-            ]
-        )
+        TEST_CASES.append([{"num_samples": num_samples}, p(np.ones([10, 10, 9])), p(np.ones([10, 10, 9])), num_samples])
 
 
 class TestSampleForegroundLocations(unittest.TestCase):
@@ -42,6 +35,7 @@ class TestSampleForegroundLocations(unittest.TestCase):
 
         # output tensor should remain unchanged
         assert_allclose(result, out, rtol=1e-3, type_test="tensor")
+
 
 if __name__ == "__main__":
     unittest.main()

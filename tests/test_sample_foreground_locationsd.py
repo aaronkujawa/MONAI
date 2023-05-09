@@ -25,14 +25,8 @@ for p in TEST_NDARRAYS:
         TEST_CASES.append(
             [
                 {"label_keys": ["label"], "num_samples": num_samples},
-                {
-                    "image": p(np.zeros([10, 10, 9])),
-                    "label": p(np.ones([10, 10, 9]))
-                },
-                {
-                    "image": p(np.zeros([10, 10, 9])),
-                    "label": p(np.ones([10, 10, 9]))
-                },
+                {"image": p(np.zeros([10, 10, 9])), "label": p(np.ones([10, 10, 9]))},
+                {"image": p(np.zeros([10, 10, 9])), "label": p(np.ones([10, 10, 9]))},
                 num_samples,
             ]
         )
@@ -42,14 +36,18 @@ class TestSampleForegroundLocationsd(unittest.TestCase):
     @parameterized.expand(TEST_CASES)
     def test_value_shape(self, input_param, test_input, output, expected_num_samples):
         result = SampleForegroundLocationsd(**input_param)(test_input)
-        assert_allclose(result["image"], output["image"], rtol=1e-3)  # "image" should not have been affected by transform
-        assert_allclose(result["label"], output["label"], rtol=1e-3, type_test="tensor")  # "label" should not have been affected by transform
+        assert_allclose(
+            result["image"], output["image"], rtol=1e-3
+        )  # "image" should not have been affected by transform
+        assert_allclose(
+            result["label"], output["label"], rtol=1e-3, type_test="tensor"
+        )  # "label" should not have been affected by transform
         if "label" in result:
             self.assertEqual(len(result["label"].meta["foreground_sample_locations"]), expected_num_samples)
 
             # output tensor should remain unchanged
-            #assert_allclose(result["image"], output["image"], rtol=1e-3, type_test="tensor")
-            #assert_allclose(result["label"], output["label"], rtol=1e-3, type_test="tensor")
+            # assert_allclose(result["image"], output["image"], rtol=1e-3, type_test="tensor")
+            # assert_allclose(result["label"], output["label"], rtol=1e-3, type_test="tensor")
 
 
 if __name__ == "__main__":

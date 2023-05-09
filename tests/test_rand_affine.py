@@ -101,9 +101,9 @@ for p in TEST_NDARRAYS_ALL:
                 ),
                 {"img": p(torch.arange(64).reshape((1, 8, 8))), "spatial_size": (3, 3)},
                 p(
-                    torch.tensor([[[32.1092, 22.3571, 12.6049],
-                                 [38.1935, 28.4413, 18.6892],
-                                 [44.2777, 34.5256, 24.7735]]])
+                    torch.tensor(
+                        [[[32.1092, 22.3571, 12.6049], [38.1935, 28.4413, 18.6892], [44.2777, 34.5256, 24.7735]]]
+                    )
                 ),
             ]
         )
@@ -121,9 +121,9 @@ for p in TEST_NDARRAYS_ALL:
                 ),
                 {"img": p(torch.arange(64).reshape((1, 8, 8)))},
                 p(
-                    torch.tensor([[[32.1092, 22.3571, 12.6049],
-                                   [38.1935, 28.4413, 18.6892],
-                                   [44.2777, 34.5256, 24.7735]]])
+                    torch.tensor(
+                        [[[32.1092, 22.3571, 12.6049], [38.1935, 28.4413, 18.6892], [44.2777, 34.5256, 24.7735]]]
+                    )
                 ),
             ]
         )
@@ -145,9 +145,9 @@ for p in TEST_NDARRAYS_ALL:
                 ),
                 {"img": p(torch.arange(64).reshape((1, 8, 8)))},
                 p(
-                    torch.tensor([[[32.1092, 22.3571, 12.6049],
-                                   [38.1935, 28.4413, 18.6892],
-                                   [44.2777, 34.5256, 24.7735]]])
+                    torch.tensor(
+                        [[[32.1092, 22.3571, 12.6049], [38.1935, 28.4413, 18.6892], [44.2777, 34.5256, 24.7735]]]
+                    )
                 ),
             ]
         )
@@ -183,9 +183,15 @@ for p in TEST_NDARRAYS_ALL:
             ),
             {"img": p(torch.arange(64).reshape((1, 8, 8)))},
             p(
-                torch.tensor([[[1.100917, 3.219612, 9.162791],
-                               [7.743001, 13.68618, 19.629358],
-                               [18.209568, 24.152748, 30.095926]]])
+                torch.tensor(
+                    [
+                        [
+                            [1.100917, 3.219612, 9.162791],
+                            [7.743001, 13.68618, 19.629358],
+                            [18.209568, 24.152748, 30.095926],
+                        ]
+                    ]
+                )
             ),
         ]
     )
@@ -249,14 +255,16 @@ class TestRandAffine(unittest.TestCase):
         assert_allclose(arr1, arr2)
 
     @parameterized.expand(TEST_FOREGROUND_OVERSAMPLING)
-    def test_rand_affine(self, input_param, input_data, expected_val):
+    def test_rand_foreground_oversampling(self, input_param, input_data, expected_val):
         g = RandAffine(**input_param)
         g.set_random_state(123)
 
-        grid = g.rand_affine_grid(spatial_size=input_param['spatial_size'],
-                                  grid=None,
-                                  image_size=input_data['img'].shape[1:],
-                                  fg_indices=[[1, 2], [2, 2]])
+        grid = g.rand_affine_grid(
+            spatial_size=input_param["spatial_size"],
+            grid=None,
+            image_size=input_data["img"].shape[1:],
+            fg_indices=[[1, 2], [2, 2]],
+        )
 
         result = g(**input_data, grid=grid)
         test_resampler_lazy(g, result, input_param, input_data, seed=123)

@@ -15,20 +15,16 @@ A collection of transforms that serve as interfaces for external tools
 from __future__ import annotations
 
 import contextlib
-
-import os
 import io
+import os
 import sys
 
 from monai.transforms.transform import Transform
 from monai.utils import optional_import
+
 hd_bet_run, _ = optional_import("HD_BET.run")
 
-__all__ = [
-    "ANTsAffineRegistration",
-    "ANTsApplyTransform",
-    "BrainExtraction",
-]
+__all__ = ["ANTsAffineRegistration", "ANTsApplyTransform", "BrainExtraction"]
 
 
 class ANTsAffineRegistration(Transform):
@@ -37,21 +33,14 @@ class ANTsAffineRegistration(Transform):
     at the coordinates of the reference image. Subsequently, the registered image is saved to disk as a new nifti
     file and the path to the new file is returned. Advanced Normalization Tools (ANTs) is required for this transform.
     """
-    def __init__(
-            self,
-            template_path: str
-    ) -> None:
+
+    def __init__(self, template_path: str) -> None:
         """
         :param template_path: Path to the reference image, for example an MNI template
         """
         self.template_path = template_path
 
-    def __call__(
-            self,
-            original_space_image_path: str,
-            mni_space_img_path: str,
-            output_affine_path: str,
-    ) -> str:
+    def __call__(self, original_space_image_path: str, mni_space_img_path: str, output_affine_path: str) -> str:
         """
         :param original_space_image_path: Path to the original (unregistered) nifti image
         :param mni_space_img_path: Path to the registered (output) nifti image
@@ -69,7 +58,15 @@ class ANTsAffineRegistration(Transform):
         ants_metric1 = f"MI[{fixed_file_path},{moving_file_path},1,32,Regular,0.25]"
         ants_metric2 = f"MI[{fixed_file_path},{moving_file_path},1,32,Regular,0.25]"
 
-        ants_cmd = f"{ants_binary_path} --verbose 0 --dimensionality 3 --float 1 --output {ants_output} --interpolation Linear --use-histogram-matching 1 --winsorize-image-intensities [0.005,0.995] --transform Rigid[0.1] --convergence [1000x500x250x100x0,1e-6,10] --shrink-factors 12x8x4x2x1 --smoothing-sigmas 4x3x2x1x1vox --initial-moving-transform {ants_initial_moving_transforms} --metric {ants_metric1} --transform Affine[0.1] --metric {ants_metric2} --convergence [1000x500x250x100x0,1e-6,10] --shrink-factors 12x8x4x2x1 --smoothing-sigmas 4x3x2x1x1vox"
+        ants_cmd = (
+            f"{ants_binary_path} --verbose 0 --dimensionality 3 --float 1 --output {ants_output} "
+            f"--interpolation Linear --use-histogram-matching 1 --winsorize-image-intensities [0.005,0.995] "
+            f"--transform Rigid[0.1] --convergence [1000x500x250x100x0,1e-6,10] --shrink-factors 12x8x4x2x1 "
+            f"--smoothing-sigmas 4x3x2x1x1vox --initial-moving-transform {ants_initial_moving_transforms} "
+            f"--metric {ants_metric1} --transform Affine[0.1] --metric {ants_metric2} "
+            f"--convergence [1000x500x250x100x0,1e-6,10] --shrink-factors 12x8x4x2x1 "
+            f"--smoothing-sigmas 4x3x2x1x1vox"
+        )
 
         os.makedirs(os.path.dirname(output_moved_file_path), exist_ok=True)
         os.makedirs(os.path.dirname(output_affine_path), exist_ok=True)
@@ -90,18 +87,16 @@ class ANTsApplyTransform(Transform):
     operation performed with ANTsAffineRegistration.
     """
 
-    def __init__(
-            self,
-    ) -> None:
+    def __init__(self) -> None:
         pass
 
     def __call__(
-            self,
-            input_file_path: str,
-            affine_trfm_file_path: str,
-            reference_image_path: str,
-            output_file_path: str,
-            use_inverse_trfm: bool
+        self,
+        input_file_path: str,
+        affine_trfm_file_path: str,
+        reference_image_path: str,
+        output_file_path: str,
+        use_inverse_trfm: bool,
     ) -> str:
         """
         :param input_file_path: Path to the input image
@@ -113,9 +108,14 @@ class ANTsApplyTransform(Transform):
         :return: Path to the transformed and resampled output image (same as output_file_path)
         """
 
-        ants_applytransform_binary_path = "antsApplyTransforms"  # requires the corresponding binary file to be on the PATH
+        ants_applytransform_binary_path = (
+            "antsApplyTransforms"  # requires the corresponding binary file to be on the PATH
+        )
         use_inverse_trfm = 1 if use_inverse_trfm else 0
-        ants_cmd = f"{ants_applytransform_binary_path} -d 3 -r {reference_image_path} -t [ {affine_trfm_file_path}, {use_inverse_trfm}] -n NearestNeighbor -i {input_file_path} -o {output_file_path}"
+        ants_cmd = (
+            f"{ants_applytransform_binary_path} -d 3 -r {reference_image_path} -t [ {affine_trfm_file_path}, "
+            f"{use_inverse_trfm}] -n NearestNeighbor -i {input_file_path} -o {output_file_path}"
+        )
 
         print(f"apply {'inverse' if use_inverse_trfm else ''} ANTs transform to {input_file_path}...")
         return_code = os.system(ants_cmd)
@@ -130,18 +130,12 @@ class BrainExtraction(Transform):
     """
     Uses HD-BET to perform brain extraction
     """
-    def __init__(
-            self,
-    ) -> None:
-        """
-        """
+
+    def __init__(self) -> None:
+        """ """
         pass
 
-    def __call__(
-            self,
-            original_image_path: str,
-            stripped_img_path: str,
-    ) -> str:
+    def __call__(self, original_image_path: str, stripped_img_path: str) -> str:
         """
         :param original_image_path: Path to the original un-stripped T1 image
         :param stripped_img_path: Path to the stripped image
@@ -160,6 +154,6 @@ class BrainExtraction(Transform):
 
         print("run brain-extraction...")
         with nostdout():
-            hd_bet_run.run_hd_bet([original_image_path], [stripped_img_path], mode='fast', do_tta=False)
+            hd_bet_run.run_hd_bet([original_image_path], [stripped_img_path], mode="fast", do_tta=False)
 
         return stripped_img_path

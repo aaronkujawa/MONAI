@@ -995,11 +995,8 @@ class SampleForegroundLocations(Transform):
     Sample foreground locations and store in metadata of the label. The locations can be used for foreground
     oversampling.
     """
-    def __init__(
-            self,
-            num_samples: int = 1000,
-            dtype: DtypeLike = np.float32,
-        ) -> None:
+
+    def __init__(self, num_samples: int = 1000, dtype: DtypeLike = np.float32) -> None:
         """
         Args:
             num_samples: number of foreground samples
@@ -1017,11 +1014,12 @@ class SampleForegroundLocations(Transform):
         all_locations = (label > 0).nonzero()
 
         # TODO: Handle case of no foreground
-        random_indices = torch.randint(0, len(all_locations), (self.num_samples, ))
+        random_indices = torch.randint(0, len(all_locations), (self.num_samples,))
         random_samples = all_locations[random_indices]
 
         label.meta["foreground_sample_locations"] = random_samples.cpu().numpy()
         return label
+
 
 class FgBgToIndices(Transform, MultiSampleTrait):
     """

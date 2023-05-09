@@ -48,6 +48,7 @@ from monai.transforms.intensity.array import (
     RandKSpaceSpikeNoise,
     RandRicianNoise,
     RandScaleIntensity,
+    RandScaleIntensityFixedMean,
     RandShiftIntensity,
     RandStdShiftIntensity,
     SavitzkyGolaySmooth,
@@ -56,7 +57,7 @@ from monai.transforms.intensity.array import (
     ScaleIntensityRangePercentiles,
     ShiftIntensity,
     StdShiftIntensity,
-    ThresholdIntensity, RandScaleIntensityFixedMean,
+    ThresholdIntensity,
 )
 from monai.transforms.transform import MapTransform, RandomizableTransform
 from monai.transforms.utils import is_positive
@@ -636,14 +637,14 @@ class RandScaleIntensityFixedMeand(RandomizableTransform, MapTransform):
     backend = RandScaleIntensityFixedMean.backend
 
     def __init__(
-            self,
-            keys: KeysCollection,
-            factors: Sequence[float, float] | float,
-            fixed_mean: bool = True,
-            preserve_range: bool = False,
-            prob: float = 0.1,
-            dtype: DtypeLike = np.float32,
-            allow_missing_keys: bool = False,
+        self,
+        keys: KeysCollection,
+        factors: Sequence[float, float] | float,
+        fixed_mean: bool = True,
+        preserve_range: bool = False,
+        prob: float = 0.1,
+        dtype: DtypeLike = np.float32,
+        allow_missing_keys: bool = False,
     ) -> None:
         """
         Args:
@@ -665,11 +666,12 @@ class RandScaleIntensityFixedMeand(RandomizableTransform, MapTransform):
         RandomizableTransform.__init__(self, prob)
         self.fixed_mean = fixed_mean
         self.preserve_range = preserve_range
-        self.scaler = RandScaleIntensityFixedMean(factors=factors, fixed_mean=self.fixed_mean,
-                                                  preserve_range=preserve_range, dtype=dtype, prob=1.0)
+        self.scaler = RandScaleIntensityFixedMean(
+            factors=factors, fixed_mean=self.fixed_mean, preserve_range=preserve_range, dtype=dtype, prob=1.0
+        )
 
     def set_random_state(
-            self, seed: int | None = None, state: np.random.RandomState | None = None
+        self, seed: int | None = None, state: np.random.RandomState | None = None
     ) -> "RandScaleIntensityFixedMean":
         super().set_random_state(seed, state)
         self.scaler.set_random_state(seed, state)
@@ -882,12 +884,14 @@ class AdjustContrastd(MapTransform):
 
     backend = AdjustContrast.backend
 
-    def __init__(self,
-                 keys: KeysCollection,
-                 gamma: float,
-                 invert_image: bool = False,
-                 retain_stats: bool = False,
-                 allow_missing_keys: bool = False) -> None:
+    def __init__(
+        self,
+        keys: KeysCollection,
+        gamma: float,
+        invert_image: bool = False,
+        retain_stats: bool = False,
+        allow_missing_keys: bool = False,
+    ) -> None:
         super().__init__(keys, allow_missing_keys)
         self.adjuster = AdjustContrast(gamma, invert_image, retain_stats)
 

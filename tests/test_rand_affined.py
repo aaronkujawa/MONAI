@@ -93,7 +93,9 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
                 "img": MetaTensor(torch.arange(64).reshape((1, 8, 8))),
                 "seg": MetaTensor(torch.arange(64).reshape((1, 8, 8))),
             },
-            torch.tensor([[[32.10919, 22.357067, 12.604945], [38.193462, 28.44134, 18.689217], [44.277733, 34.52561, 24.773487]]]),
+            torch.tensor(
+                [[[32.10919, 22.357067, 12.604945], [38.193462, 28.44134, 18.689217], [44.277733, 34.52561, 24.773487]]]
+            ),
         ]
     )
     TESTS.append(
@@ -116,14 +118,16 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
             {
                 "img": MetaTensor(
                     torch.tensor(
-                        [[[32.10919, 22.357067, 12.604945],
-                          [38.193462, 28.44134, 18.689217],
-                          [44.277733, 34.52561, 24.773487]]]
+                        [
+                            [
+                                [32.10919, 22.357067, 12.604945],
+                                [38.193462, 28.44134, 18.689217],
+                                [44.277733, 34.52561, 24.773487],
+                            ]
+                        ]
                     )
                 ),
-                "seg": MetaTensor(torch.tensor([[[35., 19., 12.],
-                                                 [36., 28., 20.],
-                                                 [45., 37., 21.]]])),
+                "seg": MetaTensor(torch.tensor([[[35.0, 19.0, 12.0], [36.0, 28.0, 20.0], [45.0, 37.0, 21.0]]])),
             },
         ]
     )
@@ -141,10 +145,7 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
                 mode=GridSampleMode.BILINEAR,
             ),
             {"img": MetaTensor(torch.ones((1, 3, 3, 3))), "seg": MetaTensor(torch.ones((1, 3, 3, 3)))},
-            torch.tensor([[[[1.0000, 0.7835],
-                            [1.0000, 1.0000]],
-                           [[0.9465, 1.0000],
-                            [0.4705, 1.0000]]]]),
+            torch.tensor([[[[1.0000, 0.7835], [1.0000, 1.0000]], [[0.9465, 1.0000], [0.4705, 1.0000]]]]),
         ]
     )
     TESTS.append(
@@ -167,14 +168,16 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
             {
                 "img": MetaTensor(
                     np.array(
-                        [[[32.10919, 22.357067, 12.604945],
-                          [38.193462, 28.44134, 18.689217],
-                          [44.277733, 34.52561, 24.773487]]]
+                        [
+                            [
+                                [32.10919, 22.357067, 12.604945],
+                                [38.193462, 28.44134, 18.689217],
+                                [44.277733, 34.52561, 24.773487],
+                            ]
+                        ]
                     )
                 ),
-                "seg": MetaTensor(np.array([[[35., 19., 12.],
-                                             [36., 28., 20.],
-                                             [45., 37., 21.]]])),
+                "seg": MetaTensor(np.array([[[35.0, 19.0, 12.0], [36.0, 28.0, 20.0], [45.0, 37.0, 21.0]]])),
             },
         ]
     )
@@ -199,20 +202,22 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
             {
                 "img": MetaTensor(
                     torch.tensor(
-                        [[[32.10919, 22.357067, 12.604945],
-                          [38.193462, 28.44134, 18.689217],
-                          [44.277733, 34.52561, 24.773487]]]
+                        [
+                            [
+                                [32.10919, 22.357067, 12.604945],
+                                [38.193462, 28.44134, 18.689217],
+                                [44.277733, 34.52561, 24.773487],
+                            ]
+                        ]
                     )
                 ),
-                "seg": MetaTensor(torch.tensor([[[35., 19., 12.],
-                                                 [36., 28., 20.],
-                                                 [45., 37., 21.]]])),
+                "seg": MetaTensor(torch.tensor([[[35.0, 19.0, 12.0], [36.0, 28.0, 20.0], [45.0, 37.0, 21.0]]])),
             },
         ]
     )
 
     seg = MetaTensor(torch.arange(64).reshape((1, 8, 8)))
-    seg.meta['foreground_sample_locations'] = [[1, 2, 3], [2, 3, 4]]
+    seg.meta["foreground_sample_locations"] = [[1, 2, 3], [2, 3, 4]]
     TESTS.append(
         [
             dict(
@@ -229,21 +234,20 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
                 keys=("img", "seg"),
                 device=device,
             ),
-            {
-                "img": MetaTensor(torch.arange(64).reshape((1, 8, 8))),
-                "seg": seg,
-            },
+            {"img": MetaTensor(torch.arange(64).reshape((1, 8, 8))), "seg": seg},
             {
                 "img": MetaTensor(
                     torch.tensor(
-                        [[[25.449093, 24.070652, 21.291996],
-                          [28.34988, 27.144796, 25.939713],
-                          [31.250668, 30.045584, 28.8405]]]
+                        [
+                            [
+                                [25.449093, 24.070652, 21.291996],
+                                [28.34988, 27.144796, 25.939713],
+                                [31.250668, 30.045584, 28.8405],
+                            ]
+                        ]
                     )
                 ),
-                "seg": MetaTensor(torch.tensor([[[22., 23., 23.],
-                                                 [28., 30., 23.],
-                                                 [35., 28., 29.]]])),
+                "seg": MetaTensor(torch.tensor([[[22.0, 23.0, 23.0], [28.0, 30.0, 23.0], [35.0, 28.0, 29.0]]])),
             },
         ]
     )

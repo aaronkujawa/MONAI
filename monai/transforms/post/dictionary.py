@@ -163,7 +163,6 @@ class AppendDownsampledd(MapTransform):
                 See also: :py:class:`monai.transforms.compose.MapTransform`
             downsampled_shapes: List of shapes of the downsampled tensors/arrays
             allow_missing_keys: don't raise exception if key is missing.
-            
         """
 
         self.append_downsampled = AppendDownsampled(downsampled_shapes)

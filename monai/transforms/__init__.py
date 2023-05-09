@@ -231,6 +231,18 @@ from .intensity.dictionary import (
     ThresholdIntensityD,
     ThresholdIntensityDict,
 )
+from .interface.array import ANTsAffineRegistration, ANTsApplyTransform, BrainExtraction
+from .interface.dictionary import (
+    ANTsAffineRegistrationd,
+    ANTsAffineRegistrationD,
+    ANTsAffineRegistrationDict,
+    ANTsApplyTransformd,
+    ANTsApplyTransformD,
+    ANTsApplyTransformDict,
+    BrainExtractiond,
+    BrainExtractionD,
+    BrainExtractionDict,
+)
 from .inverse import InvertibleTransform, TraceableTransform
 from .inverse_batch_transform import BatchInverseTransform, Decollated, DecollateD, DecollateDict
 from .io.array import SUPPORTED_READERS, LoadImage, SaveImage
@@ -382,6 +394,7 @@ from .spatial.array import (
     RandGridPatch,
     RandRotate,
     RandRotate90,
+    RandSimulateLowResolution,
     RandZoom,
     Resample,
     ResampleToMatch,
@@ -389,7 +402,6 @@ from .spatial.array import (
     Rotate,
     Rotate90,
     Spacing,
-    RandSimulateLowResolution,
     SpatialResample,
     Zoom,
 )
@@ -439,6 +451,9 @@ from .spatial.dictionary import (
     RandRotated,
     RandRotateD,
     RandRotateDict,
+    RandSimulateLowResolutiond,
+    RandSimulateLowResolutionD,
+    RandSimulateLowResolutionDict,
     RandZoomd,
     RandZoomD,
     RandZoomDict,
@@ -457,9 +472,6 @@ from .spatial.dictionary import (
     Spacingd,
     SpacingD,
     SpacingDict,
-    RandSimulateLowResolutiond,
-    RandSimulateLowResolutionD,
-    RandSimulateLowResolutionDict,
     SpatialResampled,
     SpatialResampleD,
     SpatialResampleDict,
@@ -496,8 +508,8 @@ from .utility.array import (
     RandLambda,
     RemoveRepeatedChannel,
     RepeatChannel,
-    SimulateDelay,
     SampleForegroundLocations,
+    SimulateDelay,
     SplitChannel,
     SplitDim,
     SqueezeDim,
@@ -636,22 +648,6 @@ from .utility.dictionary import (
     Transposed,
     TransposeD,
     TransposeDict,
-)
-from .interface.array import (
-    ANTsAffineRegistration,
-    ANTsApplyTransform,
-    BrainExtraction
-)
-from .interface.dictionary import (
-    ANTsAffineRegistrationd,
-    ANTsAffineRegistrationD,
-    ANTsAffineRegistrationDict,
-    ANTsApplyTransformd,
-    ANTsApplyTransformD,
-    ANTsApplyTransformDict,
-    BrainExtractiond,
-    BrainExtractionD,
-    BrainExtractionDict,
 )
 from .utils import (
     Fourier,
