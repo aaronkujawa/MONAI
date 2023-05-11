@@ -1013,7 +1013,6 @@ class SampleForegroundLocations(Transform):
 
         all_locations = (label > 0).nonzero()
 
-        # TODO: Handle case of no foreground
         if len(all_locations) > 0:
             random_indices = torch.randint(0, len(all_locations), (self.num_samples,))
             random_samples = all_locations[random_indices]
