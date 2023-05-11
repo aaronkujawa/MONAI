@@ -163,10 +163,6 @@ class AppendDownsampled(Transform):
         ret = []
         for s in self.downsampled_shapes:
             downsampled_img = interpolate(input=img, size=s, mode=self.mode)
-
-            downsampled_img = CastToType(dtype=np.uint8)(
-                downsampled_img
-            )  # TODO: restricts functions to work with uint8, check influence of removing this line
             downsampled_img = EnsureType()(downsampled_img)
 
             ret.append(downsampled_img)

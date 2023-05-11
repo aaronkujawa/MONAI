@@ -1770,7 +1770,7 @@ class RandAffineGrid(Randomizable, LazyTransform):
             max_transl = np.array([max(tr, 0) for tr in max_transl])
 
             if (
-                self.translate_to_foreground
+                self.translate_to_foreground and (fg_indices is not None) and len(fg_indices) > 0
             ):  # first translate to foreground pixel, then add the random translation, then clip to valid range
                 # randomly pick one of the previously sampled foreground pixels to translate the center point of the grid to
                 # select one fg sample based on float randomized in randomize function

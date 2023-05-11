@@ -24,6 +24,11 @@ for p in TEST_NDARRAYS:
     for num_samples in [20, 30]:
         TEST_CASES.append([{"num_samples": num_samples}, p(np.ones([10, 10, 9])), p(np.ones([10, 10, 9])), num_samples])
 
+# test the case when input patch has no foreground
+for p in TEST_NDARRAYS:
+    for num_samples in [20, 30]:
+        TEST_CASES.append([{"num_samples": num_samples}, p(np.zeros([10, 10, 9])), p(np.zeros([10, 10, 9])), 0])
+
 
 class TestSampleForegroundLocations(unittest.TestCase):
     @parameterized.expand(TEST_CASES)
