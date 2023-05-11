@@ -21,7 +21,7 @@ from tests.utils import TEST_NDARRAYS, assert_allclose
 
 TEST_CASES = []
 for p in TEST_NDARRAYS:
-    for val in [2, 3]:  # TODO: include negative and float, currently doesn't work because of uint8 conversion
+    for val in [2, 3, -1, -2.5]:
         downsampled_shapes = [(5, 5, 5), (4, 4, 4)]
         TEST_CASES.append(
             [

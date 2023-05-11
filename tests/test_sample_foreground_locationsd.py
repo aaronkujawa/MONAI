@@ -31,6 +31,18 @@ for p in TEST_NDARRAYS:
             ]
         )
 
+# test the case when input patch has no foreground
+for p in TEST_NDARRAYS:
+    for num_samples in [20, 30]:
+        TEST_CASES.append(
+            [
+                {"label_keys": ["label"], "num_samples": num_samples},
+                {"image": p(np.zeros([10, 10, 9])), "label": p(np.zeros([10, 10, 9]))},
+                {"image": p(np.zeros([10, 10, 9])), "label": p(np.zeros([10, 10, 9]))},
+                0,
+            ]
+        )
+
 
 class TestSampleForegroundLocationsd(unittest.TestCase):
     @parameterized.expand(TEST_CASES)
@@ -44,10 +56,6 @@ class TestSampleForegroundLocationsd(unittest.TestCase):
         )  # "label" should not have been affected by transform
         if "label" in result:
             self.assertEqual(len(result["label"].meta["foreground_sample_locations"]), expected_num_samples)
-
-            # output tensor should remain unchanged
-            # assert_allclose(result["image"], output["image"], rtol=1e-3, type_test="tensor")
-            # assert_allclose(result["label"], output["label"], rtol=1e-3, type_test="tensor")
 
 
 if __name__ == "__main__":
