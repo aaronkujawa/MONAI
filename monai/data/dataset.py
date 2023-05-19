@@ -418,6 +418,12 @@ class PersistentDataset(Dataset):
 
 
 class PersistentStagedDataset(PersistentDataset):
+    """
+    PersistentStagedDataset works like PersistentDataset, but additionally allows to cache the data after a first
+    sequence of non-random transforms and in a second step continue with a second sequence of non-random transforms.
+    This is useful if parameters of the second sequence of non-random transforms depend on the whole dataset after
+    the first transform sequence has been applied.
+    """
     def __init__(
         self,
         new_transform: Sequence[Callable] | Callable,
@@ -430,6 +436,47 @@ class PersistentStagedDataset(PersistentDataset):
         hash_transform: Callable[..., bytes] | None = pickle_hash_transform_names,
         reset_ops_id: bool = True,
     ) -> None:
+        """
+        Args:
+            data: input data file paths to load and transform to generate dataset for model.
+                `PersistentStagedDataset` expects input data to be a list of serializable
+                and hashes them as cache keys using `hash_func`.
+            new_transform: if `old_transform` is not used, PersistentStagedDataset will behave like PersistentDataset
+                where the role of `transform` is replaced by `new_transform`. If `old_transform` is used,
+                `PersistentStagedDataset` will first check in the `cache_dir` if the data transformed by `old_transform`
+                is available. If it is availble, it will load the cached data and apply the `new_transform`, otherwise
+                it will first apply the `old_transform` and then the `new_transform`.
+            old_transform: sequence of transforms expected to have been applied and the resulting data to have
+                been cached in `cache_dir`.
+            cache_dir: If specified, this is the location for persistent storage
+                of pre-computed transformed data tensors. The cache_dir is computed once, and
+                persists on disk until explicitly removed.  Different runs, programs, experiments
+                may share a common cache dir provided that the transforms pre-processing is consistent.
+                If `cache_dir` doesn't exist, will automatically create it.
+                If `cache_dir` is `None`, there is effectively no caching.
+            hash_func: a callable to compute hash from data items to be cached.
+                defaults to `monai.data.utils.pickle_hashing`.
+            pickle_module: string representing the module used for pickling metadata and objects,
+                default to `"pickle"`. due to the pickle limitation in multi-processing of Dataloader,
+                we can't use `pickle` as arg directly, so here we use a string name instead.
+                if want to use other pickle module at runtime, just register like:
+                >>> from monai.data import utils
+                >>> utils.SUPPORTED_PICKLE_MOD["test"] = other_pickle
+                this arg is used by `torch.save`, for more details, please check:
+                https://pytorch.org/docs/stable/generated/torch.save.html#torch.save,
+                and ``monai.data.utils.SUPPORTED_PICKLE_MOD``.
+            pickle_protocol: can be specified to override the default protocol, default to `2`.
+                this arg is used by `torch.save`, for more details, please check:
+                https://pytorch.org/docs/stable/generated/torch.save.html#torch.save.
+            hash_transform: a callable to compute hash from the transform information when caching.
+                This may reduce errors due to transforms changing during experiments. Default to
+                `monai.data.utils.pickle_hash_transform_names`.
+            reset_ops_id: whether to set `TraceKeys.ID` to ``Tracekys.NONE``, defaults to ``True``.
+                When this is enabled, the traced transform instance IDs will be removed from the cached MetaTensors.
+                This is useful for skipping the transform instance checks when inverting applied operations
+                using the cached content and with re-created transform instances.
+
+        """
         self.old_transform = old_transform
         if not self.old_transform:
             # if no old_transform is passed, create a normal PersistentDataset based on the new_transform
