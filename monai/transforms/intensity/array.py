@@ -471,10 +471,8 @@ class ScaleIntensity(Transform):
 
 class ScaleIntensityFixedMean(Transform):
     """
-    Scale the intensity of input image to the given value range (minv, maxv).
-    If `minv` and `maxv` not provided, use `factor` to scale image by ``v = v * (1 + factor)``.
-    Subtract the mean intensity before scaling with `factor`, then add the same value after scaling
-    to ensure that the output has the same mean as the input.
+    Scale the intensity of input image ``v = v * (1 + factor)``, then shift the output so that the output image has the
+    same mean as the input.
     """
 
     backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
