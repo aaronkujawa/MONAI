@@ -528,7 +528,7 @@ class ScaleIntensityFixedMean(Transform):
                     mn = d.mean()
                     d = d - mn
 
-                out_channel = (d * (1 + self.factor)) if self.factor is not None else img_t
+                out_channel = (d * (1 + self.factor)) if self.factor is not None else d
 
                 if self.fixed_mean:
                     out_channel = out_channel + mn
