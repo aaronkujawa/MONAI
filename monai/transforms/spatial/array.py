@@ -2523,6 +2523,8 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         img = convert_to_tensor(img, track_meta=get_track_meta())
         if lazy_:
             if self._do_transform:
+                if grid is None:
+                    self.rand_affine_grid(sp_size, randomize=randomize, lazy=True)
                 affine = self.rand_affine_grid.get_transformation_matrix()
             else:
                 affine = convert_to_dst_type(torch.eye(len(sp_size) + 1), img, dtype=self.rand_affine_grid.dtype)[0]
@@ -3278,7 +3280,7 @@ class GridPatch(Transform, MultiSampleTrait):
             elif self.sort_fn == GridPatchSort.MAX:
                 idx = argsort(-image_np.sum(tuple(range(1, n_dims))))
             else:
-                raise ValueError(f'`sort_fn` should be either "min", "max" or None! {self.sort_fn} provided!')
+                raise ValueError(f'`sort_fn` should be either "min", "max", or None! {self.sort_fn} provided!')
             idx = idx[: self.num_patches]
             idx_np = convert_data_type(idx, np.ndarray)[0]
             image_np = image_np[idx]
@@ -3371,7 +3373,7 @@ class RandGridPatch(GridPatch, RandomizableTransform, MultiSampleTrait):
         overlap: the amount of overlap of neighboring patches in each dimension (a value between 0.0 and 1.0).
             If only one float number is given, it will be applied to all dimensions. Defaults to 0.0.
         sort_fn: when `num_patches` is provided, it determines if keep patches with highest values (`"max"`),
-            lowest values (`"min"`), or in their default order (`None`). Default to None.
+            lowest values (`"min"`), in random ("random"), or in their default order (`None`). Default to None.
         threshold: a value to keep only the patches whose sum of intensities are less than the threshold.
             Defaults to no filtering.
         pad_mode: the  mode for padding the input image by `patch_size` to include patches that cross boundaries.
@@ -3423,6 +3425,8 @@ class RandGridPatch(GridPatch, RandomizableTransform, MultiSampleTrait):
         )
         self.min_offset = min_offset
         self.max_offset = max_offset
+        self.num_patches = num_patches
+        self.sort_fn = sort_fn
 
     def randomize(self, array):
         if self.min_offset is None:
@@ -3435,6 +3439,18 @@ class RandGridPatch(GridPatch, RandomizableTransform, MultiSampleTrait):
             max_offset = ensure_tuple_rep(self.max_offset, len(self.patch_size))
 
         self.offset = tuple(self.R.randint(low=low, high=high + 1) for low, high in zip(min_offset, max_offset))
+
+    def filter_count(self, image_np: NdarrayOrTensor, locations: np.ndarray) -> tuple[NdarrayOrTensor, np.ndarray]:
+        if self.sort_fn == GridPatchSort.RANDOM:
+            idx = self.R.permutation(image_np.shape[0])
+            idx = idx[: self.num_patches]
+            idx_np = convert_data_type(idx, np.ndarray)[0]
+            image_np = image_np[idx]  # type: ignore
+            locations = locations[idx_np]
+            return image_np, locations
+        elif self.sort_fn not in (None, GridPatchSort.MIN, GridPatchSort.MAX):
+            raise ValueError(f'`sort_fn` should be either "min", "max", "random" or None! {self.sort_fn} provided!')
+        return super().filter_count(image_np, locations)
 
     def __call__(self, array: NdarrayOrTensor, randomize: bool = True):
         if randomize:
