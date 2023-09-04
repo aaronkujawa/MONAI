@@ -154,6 +154,8 @@ class BrainExtraction(Transform):
 
         print("run brain-extraction...")
         with nostdout():
-            hd_bet_run.run_hd_bet([original_image_path], [stripped_img_path], mode="fast", do_tta=False)
+            print(f"run brain-extraction on {original_image_path}...")
+            print(f"output will be saved to {stripped_img_path}...")
+            hd_bet_run.run_hd_bet([original_image_path], [stripped_img_path], mode="fast", do_tta=False, bet=True)
 
         return stripped_img_path
