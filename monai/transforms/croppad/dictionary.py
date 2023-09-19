@@ -50,7 +50,7 @@ from monai.transforms.inverse import InvertibleTransform
 from monai.transforms.traits import LazyTrait, MultiSampleTrait
 from monai.transforms.transform import LazyTransform, MapTransform, Randomizable
 from monai.transforms.utils import is_positive
-from monai.utils import MAX_SEED, Method, PytorchPadMode, deprecated_arg_default, ensure_tuple_rep
+from monai.utils import MAX_SEED, Method, PytorchPadMode, deprecated_arg_default, ensure_tuple_rep, ensure_tuple
 
 __all__ = [
     "Padd",
@@ -726,7 +726,7 @@ class CropForegroundd(Cropd):
     def __init__(
         self,
         keys: KeysCollection,
-        source_key: str,
+        source_key: Sequence[str] | str,
         select_fn: Callable = is_positive,
         channel_indices: IndexSelection | None = None,
         margin: Sequence[int] | int = 0,
@@ -743,7 +743,8 @@ class CropForegroundd(Cropd):
         Args:
             keys: keys of the corresponding items to be transformed.
                 See also: :py:class:`monai.transforms.compose.MapTransform`
-            source_key: data source to generate the bounding box of foreground, can be image or label, etc.
+            source_key: data source(s) to generate the bounding box of foreground, can be image or label, etc., or
+                Sequence of them.
             select_fn: function to select expected foreground, default is to select values > 0.
             channel_indices: if defined, select foreground only on the specified channels
                 of image. if None, select foreground on the whole image.
@@ -768,7 +769,7 @@ class CropForegroundd(Cropd):
                 note that `np.pad` treats channel dimension as the first dimension.
 
         """
-        self.source_key = source_key
+        self.source_key = ensure_tuple(source_key)
         self.start_coord_key = start_coord_key
         self.end_coord_key = end_coord_key
         cropper = CropForeground(
@@ -795,7 +796,17 @@ class CropForegroundd(Cropd):
     def __call__(self, data: Mapping[Hashable, torch.Tensor], lazy: bool | None = None) -> dict[Hashable, torch.Tensor]:
         d = dict(data)
         self.cropper: CropForeground
-        box_start, box_end = self.cropper.compute_bounding_box(img=d[self.source_key])
+
+        # get the bounding box that contains the bounding boxes of individual source images, i.e. where the select_fn is
+        # True for all source images
+        for i, source_key in enumerate(self.source_key):
+            if i == 0:
+                box_start, box_end = self.cropper.compute_bounding_box(img=d[source_key])
+            else:
+                box_start_, box_end_ = self.cropper.compute_bounding_box(img=d[source_key])
+                box_start = np.minimum(box_start_, box_start)
+                box_end = np.maximum(box_end_, box_end)
+
         if self.start_coord_key is not None:
             d[self.start_coord_key] = box_start  # type: ignore
         if self.end_coord_key is not None:
