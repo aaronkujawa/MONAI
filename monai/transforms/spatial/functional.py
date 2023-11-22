@@ -589,6 +589,10 @@ def affine_func(
         "do_resampling": do_resampling,
         "align_corners": resampler.align_corners,
     }
+
+    if hasattr(resampler, "multilabel") and resampler.multilabel:
+        extra_info["multilabel"] = True
+
     affine = monai.transforms.Affine.compute_w_affine(rank, affine, img_size, sp_size)
     meta_info = TraceableTransform.track_transform_meta(
         img,

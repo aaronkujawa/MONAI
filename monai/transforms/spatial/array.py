@@ -1919,6 +1919,7 @@ class RandAffineGrid(Randomizable, LazyTransform):
         if self.foreground_oversampling_prob is not None and self.R.rand() < self.foreground_oversampling_prob:
             self.translate_to_foreground = True
             self.rand_float_to_pick_fg_location = self.R.rand()
+            self.rand_norm_translate_params = self._get_rand_param(((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)))
         else:
             self.translate_to_foreground = False
             self.rand_norm_translate_params = self._get_rand_param(((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)))
@@ -1973,7 +1974,8 @@ class RandAffineGrid(Randomizable, LazyTransform):
                 random_fg_index = fg_indices[rand_int][1:]
 
                 # from this, calculate a translation to the fg point of a grid which is initially located at the image center
-                translate_params_to_fg_point = list(np.array(random_fg_index) - np.array(image_size) / 2)
+                img_center = (np.array(list(image_size))-1) / 2
+                translate_params_to_fg_point = list(np.array(random_fg_index) - img_center)
 
                 # add the additional random translation which was randomly selected from the translate_range
                 if self.translate_params is not None and self.translate_params != []:
@@ -1987,7 +1989,10 @@ class RandAffineGrid(Randomizable, LazyTransform):
             else:  # simply translate randomly within valid range (in this case, original translate_params are discarded)
                 # for each dimension, self.rand_norm_translate_params was randomly sampled between -1 and 1,
                 # now scale this value to the full range
-                translate_params = [max_transl[i] * self.rand_norm_translate_params[i] for i in range(len(max_transl))]
+                if self.rand_norm_translate_params is not None:
+                    translate_params = [
+                        max_transl[i] * self.rand_norm_translate_params[i] for i in range(len(max_transl))
+                    ]
 
             # if the current translation parameters exceed the max_transl, use max_transl in the corresponding direction instead
             clipped_translate_params = [
@@ -2222,6 +2227,98 @@ class Resample(Transform):
         return out_val
 
 
+class ResampleMultilabel(Resample):
+    """
+    Performs resampling with a multilabel strategy, i.e., the input is assumed to be a multilabel segmentation and interpolation is performed on
+                each of the binary label maps of the label found in the segmentation, then for each pixel/voxel the
+                with the largest interpolated value is selected as output. If False, the interpolation is performed on
+                the whole input image.
+    """
+
+    def __init__(
+        self,
+        mode: str | int = GridSampleMode.BILINEAR,
+        padding_mode: str = GridSamplePadMode.BORDER,
+        norm_coords: bool = True,
+        device: torch.device | None = None,
+        align_corners: bool = False,
+        dtype: DtypeLike = np.float64,
+    ) -> None:
+        super().__init__(mode, padding_mode, norm_coords, device, align_corners, dtype)
+        self.multilabel = True  # indicates that this transform class is used for multilabel resampling
+
+    def __call__(
+        self,
+        img: torch.Tensor,
+        grid: torch.Tensor | None = None,
+        mode: str | int | None = None,
+        padding_mode: str | None = None,
+        dtype: DtypeLike = None,
+        align_corners: bool | None = None,
+    ) -> torch.Tensor:
+        """
+        Args:
+            img: shape must be (num_channels, H, W[, D]).
+            grid: shape must be (3, H, W) for 2D or (4, H, W, D) for 3D.
+                if ``norm_coords`` is True, the grid values must be in `[-(size-1)/2, (size-1)/2]`.
+                if ``USE_COMPILED=True`` and ``norm_coords=False``, grid values must be in `[0, size-1]`.
+                if ``USE_COMPILED=False`` and ``norm_coords=False``, grid values must be in `[-1, 1]`.
+            mode: {``"bilinear"``, ``"nearest"``} or spline interpolation order 0-5 (integers).
+                Interpolation mode to calculate output values. Defaults to ``self.mode``.
+                See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
+                When `USE_COMPILED` is `True`, this argument uses
+                ``"nearest"``, ``"bilinear"``, ``"bicubic"`` to indicate 0, 1, 3 order interpolations.
+                See also: https://docs.monai.io/en/stable/networks.html#grid-pull (experimental).
+                When it's an integer, the numpy (cpu tensor)/cupy (cuda tensor) backends will be used
+                and the value represents the order of the spline interpolation.
+                See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html
+            padding_mode: {``"zeros"``, ``"border"``, ``"reflection"``}
+                Padding mode for outside grid values. Defaults to ``self.padding_mode``.
+                See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
+                When `USE_COMPILED` is `True`, this argument uses an integer to represent the padding mode.
+                See also: https://docs.monai.io/en/stable/networks.html#grid-pull (experimental).
+                When `mode` is an integer, using numpy/cupy backends, this argument accepts
+                {'reflect', 'grid-mirror', 'constant', 'grid-constant', 'nearest', 'mirror', 'grid-wrap', 'wrap'}.
+                See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html
+            dtype: data type for resampling computation. Defaults to ``self.dtype``.
+                To be compatible with other modules, the output data type is always `float32`.
+            align_corners: Defaults to ``self.align_corners``.
+                See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
+
+        See also:
+            :py:const:`monai.config.USE_COMPILED`
+        """
+
+        img = convert_to_tensor(img, track_meta=get_track_meta())
+        if grid is None:
+            return img
+
+        _dtype = dtype or self.dtype or img.dtype
+        _align_corners = self.align_corners if align_corners is None else align_corners
+        _mode = self.mode if mode is None else mode
+        _padding_mode = self.padding_mode if padding_mode is None else padding_mode
+
+        out = torch.zeros((img.shape[0],) + grid.shape[1:])  # C, H, D, (W) store the multilabel
+        out = convert_to_dst_type(out, img)[0]
+        # interpolation output
+        # keep track of the max interpolated value to avoid storing all the interpolated values followed by argmax operation
+        max_interpolated_value = torch.zeros_like(out)
+        labels = torch.unique(img)
+        for label in labels:
+            # create the mask for the current label
+            mask = torch.zeros_like(img)
+            mask[img == label] = 1
+            # interpolate the mask
+            interpolated_mask = super().__call__(mask, grid, _mode, _padding_mode, _dtype, _align_corners)
+
+            # update the output with the current label if the interpolated value is greater than the max interpolated value so far
+            out[interpolated_mask > max_interpolated_value] = label
+            # update the max interpolated value
+            max_interpolated_value = torch.maximum(interpolated_mask, max_interpolated_value)
+
+        return out
+
+
 class Affine(InvertibleTransform, LazyTransform):
     """
     Transform ``img`` given the affine parameters.
@@ -2446,6 +2543,7 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         padding_mode: str = GridSamplePadMode.REFLECTION,
         cache_grid: bool = False,
         foreground_oversampling_prob: Optional[float] = None,
+        multilabel: bool = False,
         device: torch.device | None = None,
         lazy: bool = False,
     ) -> None:
@@ -2508,7 +2606,11 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
                 closer than half the grid size to the corner of the input image. In the case in which a translation to
                 a foreground location is not required, the translation parameters will be sampled uniformly within the
                 valid range. If `foreground_oversampling_prob` is `None`, the default behaviour without valid range
-                clipping is applied.
+                    clipping is applied.
+            multilabel: if True, input is assumed to be a multilabel segmentation and interpolation is performed on
+                each of the binary label maps of the label found in the segmentation, then for each pixel/voxel the
+                with the largest interpolated value is selected as output. If False, the interpolation is performed on
+                the whole input image. Defaults to False.
             cache_grid: whether to cache the identity sampling grid.
                 If the spatial size is not dynamically defined by input image, enabling this option could
                 accelerate the transform.
@@ -2537,12 +2639,14 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
             lazy=lazy,
         )
         self.resampler = Resample(device=device)
+        self.multilabel_resampler = ResampleMultilabel(device=device)
 
         self.spatial_size = spatial_size
         self.cache_grid = cache_grid
         self._cached_grid = self._init_identity_cache(lazy)
         self.mode = mode
         self.padding_mode: str = padding_mode
+        self.multilabel = multilabel
 
     @LazyTransform.lazy.setter  # type: ignore
     def lazy(self, val: bool) -> None:
@@ -2613,6 +2717,7 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         randomize: bool = True,
         grid=None,
         lazy: bool | None = None,
+        multilabel: bool | None = None,
     ) -> torch.Tensor:
         """
         Args:
@@ -2639,6 +2744,10 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
             lazy: a flag to indicate whether this transform should execute lazily or not
                 during this call. Setting this to False or True overrides the ``lazy`` flag set
                 during initialization for this call. Defaults to None.
+            multilabel: if True, input is assumed to be a multilabel segmentation and interpolation is performed on
+                each of the binary label maps of the label found in the segmentation, then for each pixel/voxel the
+                with the largest interpolated value is selected as output. If False, the interpolation is performed on
+                the whole input image. Defaults to False.
         """
         if randomize:
             self.randomize()
@@ -2649,12 +2758,15 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         do_resampling = self._do_transform or (sp_size != ensure_tuple(ori_size))
         _mode = mode if mode is not None else self.mode
         _padding_mode = padding_mode if padding_mode is not None else self.padding_mode
+        _multilabel = multilabel if multilabel is not None else self.multilabel
         lazy_ = self.lazy if lazy is None else lazy
         img = convert_to_tensor(img, track_meta=get_track_meta())
         if lazy_:
             if self._do_transform:
                 if grid is None:
-                    self.rand_affine_grid(sp_size, randomize=randomize, lazy=True)
+                    self.rand_affine_grid(
+                        spatial_size=sp_size, image_size=img.shape[1:], randomize=randomize, lazy=True
+                    )
                 affine = self.rand_affine_grid.get_transformation_matrix()
             else:
                 affine = convert_to_dst_type(torch.eye(len(sp_size) + 1), img, dtype=self.rand_affine_grid.dtype)[0]
@@ -2662,13 +2774,19 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
             if grid is None:
                 grid = self.get_identity_grid(sp_size, lazy_)
                 if self._do_transform:
-                    grid = self.rand_affine_grid(grid=grid,  image_size=img.shape[1:], randomize=randomize, lazy=lazy_)
+                    grid = self.rand_affine_grid(grid=grid, image_size=img.shape[1:], randomize=randomize, lazy=lazy_)
             affine = self.rand_affine_grid.get_transformation_matrix()
+
+        if not _multilabel:
+            resampler = self.resampler
+        else:
+            resampler = self.multilabel_resampler
+
         return affine_func(  # type: ignore
             img,
             affine,
             grid,
-            self.resampler,
+            resampler,
             sp_size,
             _mode,
             _padding_mode,
@@ -2689,13 +2807,22 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         fwd_affine = transform[TraceKeys.EXTRA_INFO]["affine"]
         mode = transform[TraceKeys.EXTRA_INFO]["mode"]
         padding_mode = transform[TraceKeys.EXTRA_INFO]["padding_mode"]
+        if "multilabel" in transform[TraceKeys.EXTRA_INFO]:
+            multi_label = transform[TraceKeys.EXTRA_INFO]["multilabel"]
+        else:
+            multi_label = False
         inv_affine = linalg_inv(convert_to_numpy(fwd_affine))
         inv_affine = convert_to_dst_type(inv_affine, data, dtype=inv_affine.dtype)[0]
         affine_grid = AffineGrid(affine=inv_affine)
         grid, _ = affine_grid(orig_size)
 
+        if multi_label:
+            resampler = self.multilabel_resampler
+        else:
+            resampler = self.resampler
+
         # Apply inverse transform
-        out = self.resampler(data, grid, mode, padding_mode)
+        out = resampler(data, grid, mode, padding_mode)
         if not isinstance(out, MetaTensor):
             out = MetaTensor(out)
         out.meta = data.meta  # type: ignore

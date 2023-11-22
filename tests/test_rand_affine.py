@@ -196,6 +196,31 @@ for p in TEST_NDARRAYS_ALL:
         ]
     )
 
+TESTS_MULTILABEL = []
+for p in TEST_NDARRAYS_ALL:
+    TESTS_MULTILABEL.append(
+        [
+            dict(
+                prob=0.9,
+                rotate_range=(np.pi / 2,),
+                prob_rotate=1.0,
+                shear_range=[1, 2],
+                prob_shear=1.0,
+                translate_range=[2, 1],
+                prob_translate=1.0,
+                scale_range=[0.1, 0.2],
+                prob_scale=1.0,
+                spatial_size=(3, 3),
+                foreground_oversampling_prob=0.5,
+                multilabel=True,  # this is the only difference to previous test
+                cache_grid=True,
+                device=device,
+            ),
+            {"img": p(torch.arange(64).reshape((1, 8, 8)))},
+            p(torch.tensor([[[21, 29, 38], [28, 29, 37], [27, 36, 44]]])),
+        ]
+    )
+
 
 class TestRandAffine(unittest.TestCase):
     @parameterized.expand(TESTS)
@@ -267,11 +292,36 @@ class TestRandAffine(unittest.TestCase):
             fg_indices=[[1, 2], [2, 2]],
         )
 
-        result = g(**input_data, grid=grid)
-        test_resampler_lazy(g, result, input_param, input_data, seed=123)
+        input_data['grid'] = grid
+        result = g(**input_data)
+        print(result)
+
         if input_param.get("cache_grid", False):
             self.assertTrue(g._cached_grid is not None)
         assert_allclose(result, expected_val, rtol=_rtol, atol=1e-4, type_test="tensor")
+        test_resampler_lazy(g, result, input_param, input_data, seed=123)
+
+
+    @parameterized.expand(TESTS_MULTILABEL)
+    def test_multilabel_resampling(self, input_param, input_data, expected_val):
+        g = RandAffine(**input_param)
+        g.set_random_state(123)
+        result = g(**input_data)
+
+        # print(input_param)
+        # print(result)
+
+        assert_allclose(result, expected_val, rtol=_rtol, atol=1e-4, type_test="tensor")
+        #
+        # inverted = g.inverse(result)
+        # print(inverted)
+
+        # input_param["multilabel"] = False
+        # g = RandAffine(**input_param)
+        # g.set_random_state(123)
+        # result_nomultilabel = g(**input_data)
+        #
+        # print(result_nomultilabel)
 
 
 if __name__ == "__main__":

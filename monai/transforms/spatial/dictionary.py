@@ -1022,6 +1022,7 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
         cache_grid: bool = False,
         foreground_oversampling_prob: float = None,
         label_key_for_foreground_oversampling: str = None,
+        multilabel: Sequence[bool] | bool = False,
         device: torch.device | None = None,
         allow_missing_keys: bool = False,
         lazy: bool = False,
@@ -1098,6 +1099,11 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
                data[label_key_for_foreground_oversampling].meta['foreground_sample_locations'].
                `monai.transforms.SampleForegroundLocations` transform can be used to create and store the list of
                foreground locations.
+            multilabel: if True, input is assumed to be a multilabel segmentation and interpolation is performed on
+                each of the binary label maps of the label found in the segmentation, then for each pixel/voxel the
+                with the largest interpolated value is selected as output. If False, the interpolation is performed on
+                the whole input image. Defaults to False.
+                It also can be a sequence, each element corresponds to a key in ``keys``.
             device: device on which the tensor will be allocated.
             allow_missing_keys: don't raise exception if key is missing.
             lazy: a flag to indicate whether this transform should execute lazily or not.
@@ -1132,6 +1138,7 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
         )
         self.mode = ensure_tuple_rep(mode, len(self.keys))
         self.padding_mode = ensure_tuple_rep(padding_mode, len(self.keys))
+        self.multilabel = ensure_tuple_rep(multilabel, len(self.keys))
 
     @LazyTransform.lazy.setter  # type: ignore
     def lazy(self, val: bool) -> None:
@@ -1189,10 +1196,13 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
                     spatial_size=sp_size, grid=grid, image_size=spatial_size, fg_indices=fg_indices, lazy=lazy_
                 )
 
-        for key, mode, padding_mode in self.key_iterator(d, self.mode, self.padding_mode):
+        for key, mode, padding_mode, multilabel in self.key_iterator(d, self.mode, self.padding_mode, self.multilabel):
             # do the transform
             if do_resampling:
-                d[key] = self.rand_affine(d[key], None, mode, padding_mode, True, grid, lazy=lazy_)  # type: ignore
+                d[key] = self.rand_affine(
+                    d[key], None, mode, padding_mode, True, grid, lazy=lazy_, multilabel=multilabel
+                )
+                # type: ignore
             else:
                 d[key] = convert_to_tensor(d[key], track_meta=get_track_meta(), dtype=torch.float32)
             self._do_transform = do_resampling  # TODO: unify self._do_transform and do_resampling
