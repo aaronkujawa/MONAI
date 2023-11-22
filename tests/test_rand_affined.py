@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import itertools
 import unittest
-from pprint import pprint
 
 import numpy as np
 import torch
@@ -260,17 +259,12 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
 
 
 class TestRandAffined(unittest.TestCase):
-    @parameterized.expand(x + [y] for x, y in itertools.product(TESTS[10:11], (False, True)))
+    @parameterized.expand(x + [y] for x, y in itertools.product(TESTS, (False, True)))
     def test_rand_affined(self, input_param, input_data, expected_val, track_meta):
-        print(input_param)
-        pprint(input_data)
-        # print(expected_val)
-        print(track_meta)
         set_track_meta(track_meta)
         g = RandAffined(**input_param).set_random_state(123)
         call_param = {"data": input_data}
         res = g(**call_param)
-        pprint(res)
         # test lazy
         if track_meta and input_data["img"].ndim in (3, 4):
             if "mode" not in input_param.keys():
@@ -318,13 +312,13 @@ class TestRandAffined(unittest.TestCase):
             self.assertEqual(len(v.applied_operations), 0)
             self.assertTupleEqual(v.shape, input_data[k].shape)
 
-    # def test_ill_cache(self):
-    #     with self.assertWarns(UserWarning):
-    #         # spatial size is None
-    #         RandAffined(device=device, spatial_size=None, prob=1.0, cache_grid=True, keys=("img", "seg"))
-    #     with self.assertWarns(UserWarning):
-    #         # spatial size is dynamic
-    #         RandAffined(device=device, spatial_size=(2, -1), prob=1.0, cache_grid=True, keys=("img", "seg"))
+    def test_ill_cache(self):
+        with self.assertWarns(UserWarning):
+            # spatial size is None
+            RandAffined(device=device, spatial_size=None, prob=1.0, cache_grid=True, keys=("img", "seg"))
+        with self.assertWarns(UserWarning):
+            # spatial size is dynamic
+            RandAffined(device=device, spatial_size=(2, -1), prob=1.0, cache_grid=True, keys=("img", "seg"))
 
 
 if __name__ == "__main__":

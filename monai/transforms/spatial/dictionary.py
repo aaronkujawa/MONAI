@@ -1195,6 +1195,7 @@ class RandAffined(RandomizableTransform, MapTransform, InvertibleTransform, Lazy
                 grid = self.rand_affine.rand_affine_grid(
                     spatial_size=sp_size, grid=grid, image_size=spatial_size, fg_indices=fg_indices, lazy=lazy_
                 )
+            grid = 0 if grid is None else grid  # always provide a grid to self.rand_affine
 
         for key, mode, padding_mode, multilabel in self.key_iterator(d, self.mode, self.padding_mode, self.multilabel):
             # do the transform
