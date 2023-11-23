@@ -257,6 +257,40 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
         ]
     )
 
+    # test for multilabel flag
+    seg = MetaTensor(torch.zeros((64,)).reshape((1, 8, 8)))
+    seg[0, 5, 5] = 2  # set this voxel as foreground
+    seg[0, 5, 6] = 1  # set this voxel as foreground
+    seg.meta["foreground_sample_locations"] = list(zip(*np.where(seg > 0)))
+    TESTS.append(
+        [
+            dict(
+                prob=1.0,
+                mode=(GridSampleMode.BILINEAR, GridSampleMode.BILINEAR),
+                multilabel=(False, True),
+                rotate_range=(np.pi / 2,),
+                prob_rotate=0,
+                shear_range=[1, 2],
+                prob_shear=0,
+                translate_range=[2, 1],
+                prob_translate=0,
+                scale_range=[0.1, 0.2],
+                prob_scale=0,
+                spatial_size=(3, 3),
+                foreground_oversampling_prob=1.0,
+                label_key_for_foreground_oversampling="seg",
+                cache_grid=True,
+                keys=("img", "seg"),
+                device=device,
+            ),
+            {"img": MetaTensor(torch.arange(64).reshape((1, 8, 8))), "seg": seg},
+            {
+                "img": MetaTensor(torch.tensor([[[36.0, 37.0, 38.0], [44.0, 45.0, 46.0], [52.0, 53.0, 54.0]]])),
+                "seg": MetaTensor(torch.tensor([[[0.0, 0.0, 0.0], [0.0, 2.0, 1.0], [0.0, 0.0, 0.0]]])),
+            },
+        ]
+    )
+
 
 class TestRandAffined(unittest.TestCase):
     @parameterized.expand(x + [y] for x, y in itertools.product(TESTS, (False, True)))
@@ -269,11 +303,13 @@ class TestRandAffined(unittest.TestCase):
         if track_meta and input_data["img"].ndim in (3, 4):
             if "mode" not in input_param.keys():
                 input_param["mode"] = "bilinear"
+            if "multilabel" not in input_param.keys():
+                input_param["multilabel"] = ensure_tuple_rep(False, len(input_param["keys"]))
             if not isinstance(input_param["keys"], str):
                 input_param["mode"] = ensure_tuple_rep(input_param["mode"], len(input_param["keys"]))
             lazy_init_param = input_param.copy()
-            for key, mode in zip(input_param["keys"], input_param["mode"]):
-                lazy_init_param["keys"], lazy_init_param["mode"] = key, mode
+            for key, mode, multilabel in zip(input_param["keys"], input_param["mode"], input_param["multilabel"]):
+                lazy_init_param["keys"], lazy_init_param["mode"], lazy_init_param["multilabel"] = key, mode, multilabel
                 resampler = RandAffined(**lazy_init_param).set_random_state(123)
                 expected_output = resampler(**call_param)
                 test_resampler_lazy(resampler, expected_output, lazy_init_param, call_param, seed=123, output_key=key)
