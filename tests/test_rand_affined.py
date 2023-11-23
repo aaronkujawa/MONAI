@@ -290,6 +290,50 @@ for device in [None, "cpu", "cuda"] if torch.cuda.is_available() else [None, "cp
             },
         ]
     )
+    # second test for multilabel flag with even spatial size and more labels
+    seg = MetaTensor(torch.arange(64).reshape((1, 8, 8)))
+    seg.meta["foreground_sample_locations"] = list(zip(*np.where(seg > 0)))
+    TESTS.append(
+        [
+            dict(
+                prob=1.0,
+                mode=(GridSampleMode.BILINEAR, GridSampleMode.BILINEAR),
+                multilabel=(False, True),
+                rotate_range=(np.pi / 2,),
+                prob_rotate=0,
+                shear_range=[1, 2],
+                prob_shear=0,
+                translate_range=[2, 1],
+                prob_translate=0,
+                scale_range=[0.1, 0.2],
+                prob_scale=0,
+                spatial_size=(4, 4),
+                foreground_oversampling_prob=1.0,
+                label_key_for_foreground_oversampling="seg",
+                cache_grid=True,
+                keys=("img", "seg"),
+                device=device,
+            ),
+            {"img": MetaTensor(torch.arange(64).reshape((1, 8, 8))), "seg": seg},
+            {
+                "img": MetaTensor(
+                    torch.tensor(
+                        [
+                            [
+                                [12.5, 13.5, 14.5, 15.5],
+                                [20.5, 21.5, 22.5, 23.5],
+                                [28.5, 29.5, 30.5, 31.5],
+                                [36.5, 37.5, 38.5, 39.5],
+                            ]
+                        ]
+                    )
+                ),
+                "seg": MetaTensor(
+                    torch.tensor([[[8, 9, 10, 11], [16, 17, 18, 19], [24, 25, 26, 27], [32, 33, 34, 35]]])
+                ),
+            },
+        ]
+    )
 
 
 class TestRandAffined(unittest.TestCase):
@@ -312,7 +356,17 @@ class TestRandAffined(unittest.TestCase):
                 lazy_init_param["keys"], lazy_init_param["mode"], lazy_init_param["multilabel"] = key, mode, multilabel
                 resampler = RandAffined(**lazy_init_param).set_random_state(123)
                 expected_output = resampler(**call_param)
-                test_resampler_lazy(resampler, expected_output, lazy_init_param, call_param, seed=123, output_key=key)
+                # lazy resampling does not support multilabel resampling at the moment
+                if multilabel and track_meta:
+                    with self.assertRaises(NotImplementedError) as cm:
+                        test_resampler_lazy(
+                            resampler, expected_output, lazy_init_param, call_param, seed=123, output_key=key
+                        )
+                else:
+                    test_resampler_lazy(
+                        resampler, expected_output, lazy_init_param, call_param, seed=123, output_key=key
+                    )
+            resampler.lazy = False
             resampler.lazy = False
 
         if input_param.get("cache_grid", False):

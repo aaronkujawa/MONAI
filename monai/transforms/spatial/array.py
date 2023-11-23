@@ -2761,6 +2761,11 @@ class RandAffine(RandomizableTransform, InvertibleTransform, LazyTransform):
         _multilabel = multilabel if multilabel is not None else self.multilabel
         lazy_ = self.lazy if lazy is None else lazy
         img = convert_to_tensor(img, track_meta=get_track_meta())
+
+        # raise error if both lazy and multilabel are True
+        if lazy_ and _multilabel:
+            raise NotImplementedError("lazy=True is currently not compatible with multilabel=True.")
+
         if lazy_:
             if self._do_transform:
                 if grid is None:
