@@ -151,6 +151,7 @@ class UnetBasicBlock(nn.Module):
             act=None,
             norm=None,
             conv_only=False,
+            bias=True
         )
         self.conv2 = get_conv_layer(
             spatial_dims,
@@ -162,6 +163,7 @@ class UnetBasicBlock(nn.Module):
             act=None,
             norm=None,
             conv_only=False,
+            bias=True
         )
         self.lrelu = get_act_layer(name=act_name)
         self.norm1 = get_norm_layer(name=norm_name, spatial_dims=spatial_dims, channels=out_channels)
