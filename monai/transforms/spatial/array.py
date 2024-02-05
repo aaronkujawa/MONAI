@@ -1913,7 +1913,12 @@ class RandAffineGrid(Randomizable, LazyTransform):
         else:
             self.translate_params = None
         if self.R.rand() < self.prob_scale:
-            self.scale_params = self._get_rand_param(self.scale_range, 1.0)
+            independent_axes = False
+            if independent_axes:
+                self.scale_params = self._get_rand_param(self.scale_range, 1.0)
+            else:
+                # if the scale factors are not independent, the same scale factor is used for all axes
+                self.scale_params = [self._get_rand_param(self.scale_range, 1.0)[0]]*len(self.translate_params)
         else:
             self.scale_params = None
         if self.foreground_oversampling_prob is not None and self.R.rand() < self.foreground_oversampling_prob:
