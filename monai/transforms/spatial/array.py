@@ -1963,7 +1963,7 @@ class RandAffineGrid(Randomizable, LazyTransform):
             if self.scale_params is not None:
                 patch_size = np.array(patch_size) * np.array(self.scale_params)
 
-            margin = patch_size / 2
+            margin = patch_size / 4
             max_transl = np.array(image_size) / 2 - margin
 
             # it is possible that the input image is smaller than the patch size
