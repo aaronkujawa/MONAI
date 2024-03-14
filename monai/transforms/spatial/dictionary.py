@@ -517,7 +517,8 @@ class Spacingd(MapTransform, InvertibleTransform, LazyTransform):
                 output_spatial_shape=output_shape_k if should_match else None,
                 lazy=lazy_,
             )
-            output_shape_k = d[key].peek_pending_shape() if isinstance(d[key], MetaTensor) else d[key].shape[1:]
+            if output_shape_k is None:
+                output_shape_k = d[key].peek_pending_shape() if isinstance(d[key], MetaTensor) else d[key].shape[1:]
         return d
 
     def inverse(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
@@ -2601,15 +2602,15 @@ class RandSimulateLowResolutiond(RandomizableTransform, MapTransform):
         Args:
             keys: keys of the corresponding items to be transformed.
             prob: probability of performing this augmentation
-            downsample_mode: how to downsample
-            upsample_mode: how to upsample
-            zoom_range: range from which the random zoom factor for the downsampling operation is sampled. It determines
-                the shape of the downsampled tensor.
-            align_corners: his only has an effect when downsample_mode or upsample_mode  is 'linear', 'bilinear',
-                'bicubic' or 'trilinear'. Default: None.
+            downsample_mode: interpolation mode for downsampling operation
+            upsample_mode: interpolation mode for upsampling operation
+            zoom_range: range from which the random zoom factor for the downsampling and upsampling operation is
+            sampled. It determines the shape of the downsampled tensor.
+            align_corners: This only has an effect when downsample_mode or upsample_mode  is 'linear', 'bilinear',
+                'bicubic' or 'trilinear'. Default: False
                 See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
-                device: device on which the tensor will be allocated.
             allow_missing_keys: don't raise exception if key is missing.
+            device: device on which the tensor will be allocated.
 
         See also:
             - :py:class:`monai.transforms.compose.MapTransform`
@@ -2635,11 +2636,17 @@ class RandSimulateLowResolutiond(RandomizableTransform, MapTransform):
 
     def set_random_state(
         self, seed: int | None = None, state: np.random.RandomState | None = None
-    ) -> "RandSimulateLowResolutiond":
+    ) -> RandSimulateLowResolutiond:
         super().set_random_state(seed, state)
         return self
 
     def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        """
+        Args:
+            data: a dictionary containing the tensor-like data to be transformed. The ``keys`` specified
+                in this dictionary must be tensor like arrays that are channel first and have at most
+                three spatial dimensions
+        """
         d = dict(data)
         first_key: Hashable = self.first_key(d)
         if first_key == ():

@@ -72,7 +72,6 @@ from monai.utils import (
     issequenceiterable,
     optional_import,
 )
-from monai.utils.deprecate_utils import deprecated_arg
 from monai.utils.enums import GridPatchSort, PatchKeys, TraceKeys, TransformBackends
 from monai.utils.misc import ImageMetaKey as Key
 from monai.utils.module import look_up_option
@@ -432,11 +431,9 @@ class Spacing(InvertibleTransform, LazyTransform):
         self._lazy = val
         self.sp_resample.lazy = val
 
-    @deprecated_arg(name="affine", since="0.9", msg_suffix="Not needed, input should be `MetaTensor`.")
     def __call__(
         self,
         data_array: torch.Tensor,
-        affine: NdarrayOrTensor | None = None,
         mode: str | int | None = None,
         padding_mode: str | None = None,
         align_corners: bool | None = None,
@@ -492,9 +489,7 @@ class Spacing(InvertibleTransform, LazyTransform):
         if sr <= 0:
             raise ValueError(f"data_array must have at least one spatial dimension, got {original_spatial_shape}.")
         affine_: np.ndarray
-        if affine is not None:
-            warnings.warn("arg `affine` is deprecated, the affine of MetaTensor in data_array has higher priority.")
-        input_affine = data_array.peek_pending_affine() if isinstance(data_array, MetaTensor) else affine
+        input_affine = data_array.peek_pending_affine() if isinstance(data_array, MetaTensor) else None
         if input_affine is None:
             warnings.warn("`data_array` is not of type MetaTensor, assuming affine to be identity.")
             # default to identity
@@ -837,7 +832,7 @@ class Resize(InvertibleTransform, LazyTransform):
         lazy_ = self.lazy if lazy is None else lazy
         return resize(  # type: ignore
             img,
-            sp_size,
+            tuple(int(_s) for _s in sp_size),
             _mode,
             _align_corners,
             _dtype,
@@ -3740,21 +3735,21 @@ class RandSimulateLowResolution(RandomizableTransform):
         prob: float = 0.1,
         downsample_mode: InterpolateMode | str = InterpolateMode.NEAREST,
         upsample_mode: InterpolateMode | str = InterpolateMode.TRILINEAR,
-        zoom_range: Sequence = (0.5, 1.0),
+        zoom_range: Sequence[float] = (0.5, 1.0),
         align_corners=False,
-        device: Optional[torch.device] = None,
+        device: torch.device | None = None,
     ) -> None:
         """
         Args:
             prob: probability of performing this augmentation
-            downsample_mode: how to downsample
-            upsample_mode: how to upsample
-            zoom_range: range from which the random zoom factor for the downsampling operation is sampled. It determines
-                the shape of the downsampled tensor.
-            align_corners: his only has an effect when downsample_mode or upsample_mode  is 'linear', 'bilinear',
-                'bicubic' or 'trilinear'. Default: None.
+            downsample_mode: interpolation mode for downsampling operation
+            upsample_mode: interpolation mode for upsampling operation
+            zoom_range: range from which the random zoom factor for the downsampling and upsampling operation is
+            sampled. It determines the shape of the downsampled tensor.
+            align_corners: This only has an effect when downsample_mode or upsample_mode  is 'linear', 'bilinear',
+                'bicubic' or 'trilinear'. Default: False
                 See also: https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
-                device: device on which the tensor will be allocated.
+            device: device on which the tensor will be allocated.
 
         """
         RandomizableTransform.__init__(self, prob)
@@ -3764,9 +3759,9 @@ class RandSimulateLowResolution(RandomizableTransform):
         self.zoom_range = zoom_range
         self.align_corners = align_corners
         self.device = device
-        self.zoom_factor = 1
+        self.zoom_factor = 1.0
 
-    def randomize(self, data: Optional[Any] = None) -> None:
+    def randomize(self, data: Any | None = None) -> None:
         super().randomize(None)
         self.zoom_factor = self.R.uniform(self.zoom_range[0], self.zoom_range[1])
         if not self._do_transform:
@@ -3776,13 +3771,14 @@ class RandSimulateLowResolution(RandomizableTransform):
         """
         Args:
             img: shape must be (num_channels, H, W[, D]),
+            randomize: whether to execute `randomize()` function first, defaults to True.
         """
         if randomize:
             self.randomize()
 
         if self._do_transform:
-            input_shape = np.array(img.shape[1:])
-            target_shape = np.round(input_shape * self.zoom_factor).astype(np.int_)
+            input_shape = img.shape[1:]
+            target_shape = np.round(np.array(input_shape) * self.zoom_factor).astype(np.int_)
 
             resize_tfm_downsample = Resize(
                 spatial_size=target_shape, size_mode="all", mode=self.downsample_mode, anti_aliasing=False
@@ -3795,16 +3791,21 @@ class RandSimulateLowResolution(RandomizableTransform):
                 anti_aliasing=False,
                 align_corners=self.align_corners,
             )
-            # temporarily disable metadata tracking, since we do not want to invert the two Resize functions in post-processing
+            # temporarily disable metadata tracking, since we do not want to invert the two Resize functions during
+            # post-processing
             original_tack_meta_value = get_track_meta()
             set_track_meta(False)
 
             img_downsampled = resize_tfm_downsample(img)
             img_upsampled = resize_tfm_upsample(img_downsampled)
+
+            # reset metadata tracking to original value
             set_track_meta(original_tack_meta_value)
 
+            # copy metadata from original image to down-and-upsampled image
             img_upsampled = MetaTensor(img_upsampled)
             img_upsampled.copy_meta_from(img)
+
             return img_upsampled
 
         else:
