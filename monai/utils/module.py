@@ -450,7 +450,13 @@ def optional_import(
             raise self._exception
 
     if as_type == "default":
-        return _LazyRaise(), False
+        lazyRaise = _LazyRaise()
+        try:
+            return lazyRaise, False
+        finally:
+            del lazyRaise
+            if tb is not None:
+                del tb
 
     class _LazyCls(_LazyRaise):
         def __init__(self, *_args, **kwargs):
@@ -458,7 +464,14 @@ def optional_import(
             if not as_type.startswith("decorator"):
                 raise self._exception
 
-    return _LazyCls, False
+
+    lazyCls = _LazyCls()
+    try:
+        return lazyCls, False
+    finally:
+        del lazyCls
+        if tb is not None:
+            del tb
 
 
 def require_pkg(

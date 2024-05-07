@@ -2106,9 +2106,13 @@ def distance_transform_edt(
             Returned only when `return_indices` is True and `indices` is not supplied. dtype np.float64.
 
     """
-    distance_transform_edt, has_cucim = optional_import(
+    distance_transform_edt_cucim, has_cucim = optional_import(
         "cucim.core.operations.morphology", name="distance_transform_edt"
     )
+    if not has_cucim:
+        warnings.warn("cuCIM not available, falling back to scipy.ndimage.distance_transform_edt")
+        del distance_transform_edt_cucim  # to prevent exception memory leak
+
     use_cp = has_cp and has_cucim and isinstance(img, torch.Tensor) and img.device.type == "cuda"
     if not return_distances and not return_indices:
         raise RuntimeError("Neither return_distances nor return_indices True")
@@ -2129,7 +2133,7 @@ def distance_transform_edt(
                     raise TypeError("distances must be a torch.Tensor on the same device as img")
                 if not distances.dtype == dtype:
                     raise TypeError("distances must be a torch.Tensor of dtype float32 or float64")
-            distances_ = convert_to_cupy(distances)
+            distances = convert_to_cupy(distances)
         if return_indices:
             dtype = torch.int32
             if indices is None:
@@ -2139,16 +2143,16 @@ def distance_transform_edt(
                     raise TypeError("indices must be a torch.Tensor on the same device as img")
                 if not indices.dtype == dtype:
                     raise TypeError("indices must be a torch.Tensor of dtype int32")
-            indices_ = convert_to_cupy(indices)
+            indices = convert_to_cupy(indices)
         img_ = convert_to_cupy(img)
         for channel_idx in range(img_.shape[0]):
-            distance_transform_edt(
+            distance_transform_edt_cucim(
                 img_[channel_idx],
                 sampling=sampling,
                 return_distances=return_distances,
                 return_indices=return_indices,
-                distances=distances_[channel_idx] if distances_ is not None else None,
-                indices=indices_[channel_idx] if indices_ is not None else None,
+                distances=distances[channel_idx] if distances is not None else None,
+                indices=indices[channel_idx] if indices is not None else None,
                 block_params=block_params,
                 float64_distances=float64_distances,
             )
