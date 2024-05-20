@@ -24,6 +24,7 @@ from .ignite_metric import IgniteMetric, IgniteMetricHandler
 from .logfile_handler import LogfileHandler
 from .lr_schedule_handler import LrScheduleHandler
 from .mean_dice import MeanDice
+from .true_pos_neg_false_pos_neg import TrueFalsePosNegs
 from .mean_iou import MeanIoUHandler
 from .metric_logger import MetricLogger, MetricLoggerKeys
 from .metrics_reloaded_handler import MetricsReloadedBinaryHandler, MetricsReloadedCategoricalHandler
