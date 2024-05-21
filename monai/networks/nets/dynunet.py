@@ -179,15 +179,7 @@ class DynUNet(nn.Module):
             self.deep_supervision_heads = self.get_deep_supervision_heads()
             self.check_deep_supr_num()
 
-        def set_all_weights(m):
-            if isinstance(m, torch.nn.Module):  # Check if it's a module
-                for param in m.parameters():  # Iterate through parameters
-                    with torch.no_grad():
-                        new_value = 0.1
-                        param.data = nn.Parameter(torch.ones_like(param) * new_value)
-        self.apply(set_all_weights)
-
-        #self.apply(self.initialize_weights)
+        self.apply(self.initialize_weights)
         self.check_kernel_stride()
 
         def create_skips(index, downsamples, upsamples, bottleneck, superheads=None):
