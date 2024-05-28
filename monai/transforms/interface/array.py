@@ -17,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import subprocess
 import sys
 
 from monai.transforms.transform import Transform
@@ -72,10 +73,12 @@ class ANTsAffineRegistration(Transform):
         os.makedirs(os.path.dirname(output_affine_path), exist_ok=True)
 
         print("run affine registration...")
-        return_code = os.system(ants_cmd)
+        return_code, result = subprocess.getstatusoutput(ants_cmd)
 
         if not return_code == 0:
-            raise Exception(f"ANTs affine registration command did not return code 0. The command was: {ants_cmd}")
+            raise Exception(f"ANTs affine registration command did not return code 0.\n"
+                            f"The command was: {ants_cmd}\n"
+                            f"The result was: {result}\n")
 
         return output_moved_file_path
 
