@@ -100,6 +100,7 @@ __all__ = [
     "AddExtremePointsChannel",
     "TorchVision",
     "MapLabelValue",
+    "BinarizeLabel",
     "IntensityStats",
     "ToDevice",
     "CuCIM",
@@ -1215,6 +1216,85 @@ class MapLabelValue:
             out_t = img_t.detach().clone().to(self.dtype)  # type: ignore
             for o, t in self.pair:
                 out_t[img_t == o] = t
+        out, *_ = convert_to_dst_type(src=out_t, dst=img, dtype=self.dtype)
+        return out
+
+
+class BinarizeLabel:
+    """
+    Utility to map label values to labels in binary encoding.
+    For example, map
+    [3, 2, 1] to [[1,1], [1,0], [0,1]],
+    [1, 2, 3] -> [[0,1], [1,0], [1,1]],
+    [4, 2, 1] -> [[1,0,0], [0,1,0], [0,0,1]],
+    ["label1", "label2", "label3"] -> [[0, 1], [1, 0], [1, 1]],
+    The label data must be numpy array or array-like data and the output data will be numpy array.
+
+    """
+
+    backend = [TransformBackends.NUMPY, TransformBackends.TORCH]
+
+    def __init__(self, orig_labels: Sequence, target_labels: Sequence, dtype: DtypeLike = np.float32) -> None:
+        """
+        Args:
+            orig_labels: original labels that map to others.
+            target_labels: expected binary label encoding for each label in `orig_labels`, i.e. a list of binary
+            sequences, e.g. [[0, 0, 1], [0, 1, 0], [1, 0, 0]].
+            dtype: convert the output data to dtype, default to float32.
+                if dtype is from PyTorch, the transform will use the pytorch backend, else with numpy backend.
+
+        """
+        if len(orig_labels) != len(target_labels):
+            raise ValueError("orig_labels and target_labels must have the same length.")
+
+        self.orig_labels = orig_labels
+        self.target_labels = target_labels
+        self.binary_len = len(target_labels[0])
+
+        type_dtype = type(dtype)
+        if getattr(type_dtype, "__module__", "") == "torch":
+            self.use_numpy = False
+            self.dtype = get_equivalent_dtype(dtype, data_type=torch.Tensor)
+        else:
+            self.use_numpy = True
+            self.dtype = get_equivalent_dtype(dtype, data_type=np.ndarray)
+
+        assert len(self.orig_labels) == len(self.target_labels), \
+            f"orig_labels and target_labels must have the same length."
+
+        # check that all target labels binary strings are the same length
+        assert all(len(t) == self.binary_len for t in self.target_labels), \
+            f"target_labels must all be the same length, but found lengths {[len(t) for t in self.target_labels]}"
+
+        if self.use_numpy:
+            self.target_labels = np.array(self.target_labels).astype(self.dtype)
+        else:
+            self.target_labels = torch.tensor(self.target_labels, dtype=self.dtype)
+
+        self.pair = tuple((o, t) for o, t in zip(self.orig_labels, self.target_labels))
+
+    def __call__(self, img: NdarrayOrTensor):
+        """
+        Args:
+            img: input data to convert to binary encoding. Has to have shape (1, H, W, D) or (1, H, W)
+        Returns:
+            binary encoded label data, has shape (C, H, W, D) or (C, H, W), where C contains the binary encoding of the labels
+        """
+
+        if self.use_numpy:
+            img_np, *_ = convert_data_type(img, np.ndarray)
+            assert img_np.shape[0] == 1, f"input data must have shape (1, H, W, D) or (1, H, W), but got {img.shape}"
+            _out_shape = (self.binary_len,) + img_np.shape[1:]
+            out_t = np.zeros(_out_shape, dtype=self.dtype)
+            for o, t in self.pair:
+                out_t[:, (img_np == o).squeeze(0)] = t[:, None]
+        else:
+            img_t, *_ = convert_data_type(img, torch.Tensor)
+            assert img_t.shape[0] == 1, f"input data must have shape (1, H, W, D) or (1, H, W), but got {img.shape}"
+            _out_shape = (self.binary_len,) + img_t.shape[1:]
+            out_t = torch.zeros(_out_shape, dtype=self.dtype, device=img_t.device)
+            for o, t in self.pair:
+                out_t[:, (img_t == o).squeeze(0)] = t[:, None]
         out, *_ = convert_to_dst_type(src=out_t, dst=img, dtype=self.dtype)
         return out
 

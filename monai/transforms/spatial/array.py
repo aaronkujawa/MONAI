@@ -106,6 +106,7 @@ __all__ = [
     "RandAffineGrid",
     "RandDeformGrid",
     "Resample",
+    "ResampleMultilabel",
     "Affine",
     "RandAffine",
     "Rand2DElastic",

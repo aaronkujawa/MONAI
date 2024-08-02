@@ -62,7 +62,7 @@ from monai.transforms.utility.array import (
     ToPIL,
     TorchVision,
     ToTensor,
-    Transpose,
+    Transpose, BinarizeLabel,
 )
 from monai.transforms.utils import extreme_points_to_image, get_extreme_points
 from monai.transforms.utils_pytorch_numpy_unification import concatenate
@@ -126,6 +126,9 @@ __all__ = [
     "MapLabelValueD",
     "MapLabelValueDict",
     "MapLabelValued",
+    "BinarizeLabelD",
+    "BinarizeLabelDict",
+    "BinarizeLabeld",
     "FlattenSubKeysd",
     "FlattenSubKeysD",
     "FlattenSubKeysDict",
@@ -1491,6 +1494,42 @@ class MapLabelValued(MapTransform):
         return d
 
 
+class BinarizeLabeld(MapTransform):
+    """
+    Dictionary-based wrapper of :py:class:`monai.transforms.BinarizeLabeld`.
+    """
+
+    backend = MapLabelValue.backend
+
+    def __init__(
+        self,
+        keys: KeysCollection,
+        orig_labels: Sequence,
+        target_labels: list[Sequence],
+        dtype: DtypeLike = np.float32,
+        allow_missing_keys: bool = False,
+    ) -> None:
+        """
+        Args:
+            keys: keys of the corresponding items to be transformed.
+                See also: :py:class:`monai.transforms.compose.MapTransform`
+            orig_labels: original labels that map to others.
+            target_labels: expected label values, 1: 1 map to the `orig_labels`.
+            dtype: convert the output data to dtype, default to float32.
+                if dtype is from PyTorch, the transform will use the pytorch backend, else with numpy backend.
+            allow_missing_keys: don't raise exception if key is missing.
+
+        """
+        super().__init__(keys, allow_missing_keys)
+        self.mapper = BinarizeLabel(orig_labels=orig_labels, target_labels=target_labels, dtype=dtype)
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+        for key in self.key_iterator(d):
+            d[key] = self.mapper(d[key])
+        return d
+
+
 class IntensityStatsd(MapTransform):
     """
     Dictionary-based wrapper of :py:class:`monai.transforms.IntensityStats`.
@@ -1811,6 +1850,7 @@ TorchVisionD = TorchVisionDict = TorchVisiond
 RandTorchVisionD = RandTorchVisionDict = RandTorchVisiond
 RandLambdaD = RandLambdaDict = RandLambdad
 MapLabelValueD = MapLabelValueDict = MapLabelValued
+BinarizeLabelD = BinarizeLabelDict = BinarizeLabeld
 IntensityStatsD = IntensityStatsDict = IntensityStatsd
 ToDeviceD = ToDeviceDict = ToDeviced
 CuCIMD = CuCIMDict = CuCIMd
