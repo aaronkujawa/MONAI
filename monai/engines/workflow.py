@@ -147,7 +147,7 @@ class Workflow(Engine):
             seed=0,
             iteration=0,
             epoch=0,
-            max_epochs=max_epochs,
+            #max_epochs=max_epochs,
             epoch_length=epoch_length,
             output=None,
             batch=None,
@@ -160,6 +160,7 @@ class Workflow(Engine):
             best_metric_epoch=-1,
         )
         self.data_loader = data_loader
+        self.max_epochs = max_epochs
         self.non_blocking = non_blocking
         self.prepare_batch = prepare_batch
         self.metric_cmp_fn = metric_cmp_fn
@@ -280,7 +281,7 @@ class Workflow(Engine):
                 " because not all the ranks run the same computation logic."
             )
             return
-        super().run(data=self.data_loader, max_epochs=self.state.max_epochs)
+        super().run(data=self.data_loader, max_epochs=self.max_epochs)
 
     def _iteration(self, engine: Any, batchdata: dict[str, torch.Tensor]) -> dict:
         """
