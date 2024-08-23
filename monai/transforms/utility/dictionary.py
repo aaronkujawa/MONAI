@@ -674,6 +674,7 @@ class DeleteItemsd(MapTransform):
         self.use_re = ensure_tuple_rep(use_re, len(self.keys))
 
     def __call__(self, data):
+
         def _delete_item(keys, d, use_re: bool = False):
             key = keys[0]
             if len(keys) > 1:
@@ -1803,9 +1804,9 @@ LabelToMaskD = LabelToMaskDict = LabelToMaskd
 SampleForegroundLocationsD = SampleForegroundLocationsDict = SampleForegroundLocationsd
 FgBgToIndicesD = FgBgToIndicesDict = FgBgToIndicesd
 ClassesToIndicesD = ClassesToIndicesDict = ClassesToIndicesd
-ConvertToMultiChannelBasedOnBratsClassesD = (
-    ConvertToMultiChannelBasedOnBratsClassesDict
-) = ConvertToMultiChannelBasedOnBratsClassesd
+ConvertToMultiChannelBasedOnBratsClassesD = ConvertToMultiChannelBasedOnBratsClassesDict = (
+    ConvertToMultiChannelBasedOnBratsClassesd
+)
 AddExtremePointsChannelD = AddExtremePointsChannelDict = AddExtremePointsChanneld
 TorchVisionD = TorchVisionDict = TorchVisiond
 RandTorchVisionD = RandTorchVisionDict = RandTorchVisiond
