@@ -92,6 +92,7 @@ from .croppad.dictionary import (
 from .croppad.functional import crop_func, crop_or_pad_nd, pad_func, pad_nd
 from .intensity.array import (
     AdjustContrast,
+    ClipIntensityPercentiles,
     ComputeHoVerMaps,
     DetectEnvelope,
     ForegroundMask,
@@ -135,6 +136,9 @@ from .intensity.dictionary import (
     AdjustContrastd,
     AdjustContrastD,
     AdjustContrastDict,
+    ClipIntensityPercentilesd,
+    ClipIntensityPercentilesD,
+    ClipIntensityPercentilesDict,
     ComputeHoVerMapsd,
     ComputeHoVerMapsD,
     ComputeHoVerMapsDict,
@@ -351,6 +355,18 @@ from .post.dictionary import (
     VoteEnsembleD,
     VoteEnsembled,
     VoteEnsembleDict,
+)
+from .regularization.array import CutMix, CutOut, MixUp
+from .regularization.dictionary import (
+    CutMixd,
+    CutMixD,
+    CutMixDict,
+    CutOutd,
+    CutOutD,
+    CutOutDict,
+    MixUpd,
+    MixUpD,
+    MixUpDict,
 )
 from .signal.array import (
     SignalContinuousWavelet,
@@ -680,6 +696,7 @@ from .utils import (
     in_bounds,
     is_empty,
     is_positive,
+    map_and_generate_sampling_centers,
     map_binary_to_indices,
     map_classes_to_indices,
     map_spatial_axes,
@@ -696,6 +713,7 @@ from .utils import (
     weighted_patch_samples,
     zero_margins,
 )
+from .utils_morphological_ops import dilate, erode
 from .utils_pytorch_numpy_unification import (
     allclose,
     any_np_pt,

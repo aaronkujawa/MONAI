@@ -76,3 +76,13 @@ State Cacher
 ------------
 .. automodule:: monai.utils.state_cacher
   :members:
+
+Component store
+---------------
+.. autoclass:: monai.utils.component_store.ComponentStore
+  :members:
+
+Ordering
+--------
+.. automodule:: monai.utils.ordering
+  :members:

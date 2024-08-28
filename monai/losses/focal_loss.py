@@ -113,7 +113,9 @@ class FocalLoss(_Loss):
         self.alpha = alpha
         self.weight = weight
         self.use_softmax = use_softmax
-        self.register_buffer("class_weight", torch.ones(1))
+        weight = torch.as_tensor(weight) if weight is not None else None
+        self.register_buffer("class_weight", weight)
+        self.class_weight: None | torch.Tensor
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -162,13 +164,12 @@ class FocalLoss(_Loss):
         else:
             loss = sigmoid_focal_loss(input, target, self.gamma, self.alpha)
 
-        if self.weight is not None:
+        num_of_classes = target.shape[1]
+        if self.class_weight is not None and num_of_classes != 1:
             # make sure the lengths of weights are equal to the number of classes
-            num_of_classes = target.shape[1]
-            if isinstance(self.weight, (float, int)):
-                self.class_weight = torch.as_tensor([self.weight] * num_of_classes)
+            if self.class_weight.ndim == 0:
+                self.class_weight = torch.as_tensor([self.class_weight] * num_of_classes)
             else:
-                self.class_weight = torch.as_tensor(self.weight)
                 if self.class_weight.shape[0] != num_of_classes:
                     raise ValueError(
                         """the length of the `weight` sequence should be the same as the number of classes.
@@ -233,9 +234,8 @@ def sigmoid_focal_loss(
     """
     # computing binary cross entropy with logits
     # equivalent to F.binary_cross_entropy_with_logits(input, target, reduction='none')
-    # see also https://github.com/pytorch/pytorch/blob/v1.9.0/aten/src/ATen/native/Loss.cpp#L231
-    max_val = (-input).clamp(min=0)
-    loss: torch.Tensor = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
+    # see also https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/Loss.cpp#L363
+    loss: torch.Tensor = input - input * target - F.logsigmoid(input)
 
     # sigmoid(-i) if t==1; sigmoid(i) if t==0 <=>
     # 1-sigmoid(i) if t==1; sigmoid(i) if t==0 <=>

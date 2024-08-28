@@ -20,6 +20,10 @@ Its ambitions are:
 - creating state-of-the-art, end-to-end training workflows for healthcare imaging;
 - providing researchers with an optimized and standardized way to create and evaluate deep learning models.
 
+.. image:: ../images/MONAI_arch.png
+    :alt: MONAI Architecture
+    :align: center
+
 Features
 --------
 
@@ -33,7 +37,7 @@ Features
 Getting started
 ---------------
 
-`MedNIST demo <https://colab.research.google.com/drive/1wy8XUSnNWlhDNazFdvGBHLfdkGvOHBKe>`_ and `MONAI for PyTorch Users <https://colab.research.google.com/drive/1boqy7ENpKrqaJoxFlbHIBnIODAs1Ih1T>`_ are available on Colab.
+`MedNIST demo <https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/2d_classification/mednist_tutorial.ipynb>`_ and `MONAI for PyTorch Users <https://colab.research.google.com/github/Project-MONAI/tutorials/blob/main/modules/developer_guide.ipynb>`_ are available on Colab.
 
 Examples and notebook tutorials are located at `Project-MONAI/tutorials <https://github.com/Project-MONAI/tutorials>`_.
 

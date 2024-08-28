@@ -247,6 +247,7 @@ class UnetUpBlock(nn.Module):
 
 
 class UnetOutBlock(nn.Module):
+
     def __init__(
         self, spatial_dims: int, in_channels: int, out_channels: int, dropout: tuple | str | float | None = None
     ):
