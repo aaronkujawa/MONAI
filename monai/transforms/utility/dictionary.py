@@ -62,7 +62,7 @@ from monai.transforms.utility.array import (
     ToPIL,
     TorchVision,
     ToTensor,
-    Transpose, BinarizeLabel,
+    Transpose, BinarizeLabel, GetSpatialWeightsDistribution,
 )
 from monai.transforms.utils import extreme_points_to_image, get_extreme_points
 from monai.transforms.utils_pytorch_numpy_unification import concatenate
@@ -1471,6 +1471,8 @@ class MapLabelValued(MapTransform):
         keys: KeysCollection,
         orig_labels: Sequence,
         target_labels: Sequence,
+        suffix_new: str = "",
+        suffix_old: str = "",
         dtype: DtypeLike = np.float32,
         allow_missing_keys: bool = False,
     ) -> None:
@@ -1480,6 +1482,8 @@ class MapLabelValued(MapTransform):
                 See also: :py:class:`monai.transforms.compose.MapTransform`
             orig_labels: original labels that map to others.
             target_labels: expected label values, 1: 1 map to the `orig_labels`.
+            suffix_new: the suffix to be appended to the keys to store the new mapped labels.
+            suffix_old: the suffix to be appended to the keys to store the original labels.
             dtype: convert the output data to dtype, default to float32.
                 if dtype is from PyTorch, the transform will use the pytorch backend, else with numpy backend.
             allow_missing_keys: don't raise exception if key is missing.
@@ -1487,11 +1491,28 @@ class MapLabelValued(MapTransform):
         """
         super().__init__(keys, allow_missing_keys)
         self.mapper = MapLabelValue(orig_labels=orig_labels, target_labels=target_labels, dtype=dtype)
+        self.suffix_new = suffix_new
+        self.suffix_old = suffix_old
 
     def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
         d = dict(data)
         for key in self.key_iterator(d):
-            d[key] = self.mapper(d[key])
+
+            # store the original label
+            if self.suffix_old:
+                d[key + self.suffix_old] = d[key]
+
+            # calculate the new label
+            if not isinstance(d[key], list):
+                d[key + self.suffix_new] = self.mapper(d[key])
+            else:
+                d[key + self.suffix_new] = [self.mapper(x) for x in d[
+                    key]]  # input may be a list of arrays/tensors, for example after AppendDownsampled transform
+
+            # remove the original label
+            if self.suffix_new:
+                del d[key]
+
         return d
 
 
@@ -1507,6 +1528,8 @@ class BinarizeLabeld(MapTransform):
         keys: KeysCollection,
         orig_labels: Sequence,
         target_labels: list[Sequence],
+        suffix_new: str = "",
+        suffix_old: str = "",
         dtype: DtypeLike = np.float32,
         allow_missing_keys: bool = False,
     ) -> None:
@@ -1516,6 +1539,8 @@ class BinarizeLabeld(MapTransform):
                 See also: :py:class:`monai.transforms.compose.MapTransform`
             orig_labels: original labels that map to others.
             target_labels: expected label values, 1: 1 map to the `orig_labels`.
+            suffix_new: the suffix to be appended to the keys to store the new mapped labels.
+            suffix_old: the suffix to be appended to the keys to store the original labels.
             dtype: convert the output data to dtype, default to float32.
                 if dtype is from PyTorch, the transform will use the pytorch backend, else with numpy backend.
             allow_missing_keys: don't raise exception if key is missing.
@@ -1523,11 +1548,65 @@ class BinarizeLabeld(MapTransform):
         """
         super().__init__(keys, allow_missing_keys)
         self.mapper = BinarizeLabel(orig_labels=orig_labels, target_labels=target_labels, dtype=dtype)
+        self.suffix_new = suffix_new
+        self.suffix_old = suffix_old
 
     def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
         d = dict(data)
         for key in self.key_iterator(d):
-            d[key] = self.mapper(d[key])
+
+            # store the original label
+            if self.suffix_old:
+                d[key + self.suffix_old] = d[key]
+
+            # calculate the new label
+            if not isinstance(d[key], list):
+                d[key+self.suffix_new] = self.mapper(d[key])
+            else:
+                d[key+self.suffix_new] = [self.mapper(x) for x in d[key]]  # input may be a list of arrays/tensors, for example after AppendDownsampled transform
+
+            # remove the original label
+            if self.suffix_new:
+                del d[key]
+
+        return d
+
+
+class GetSpatialWeightsDistributiond(MapTransform):
+    """
+    Dictionary-based wrapper of :py:class:`monai.transforms.MapLabelValue`.
+    """
+
+    backend = MapLabelValue.backend
+
+    def __init__(
+        self,
+        keys: KeysCollection,
+        class_weights=None,
+        suffix="_spatial_weights",
+        dtype: DtypeLike = torch.float32,
+        allow_missing_keys: bool = False,
+    ) -> None:
+        """
+        Args:
+            keys: keys based on which the spatial weights are computed.
+            class_weights: class weights for each class.
+            dtype: convert the output data to dtype, default to float32.
+                if dtype is from PyTorch, the transform will use the pytorch backend, else with numpy backend.
+            allow_missing_keys: don't raise exception if key is missing.
+
+        """
+        super().__init__(keys, allow_missing_keys)
+        self.get_spatial_weights_distribution = GetSpatialWeightsDistribution(class_weights=class_weights, dtype=dtype)
+        self.suffix = suffix
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+        for key in self.key_iterator(d):
+            if not isinstance(d[key], list):
+                d[key+self.suffix] = self.get_spatial_weights_distribution(d[key])
+            else:
+                d[key+self.suffix] = [self.get_spatial_weights_distribution(x) for x in d[key]]
         return d
 
 

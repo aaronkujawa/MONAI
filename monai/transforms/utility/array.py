@@ -1253,6 +1253,43 @@ class MapLabelValue:
         return out
 
 
+class GetSpatialWeightsDistribution(Transform):
+    """
+
+    """
+
+    backend = [TransformBackends.NUMPY, TransformBackends.TORCH]
+
+    def __init__(self, class_weights: Sequence,
+                 dtype: DtypeLike = torch.float32) -> None:
+        """
+        Args:
+            dtype: convert the output data to dtype, default to float32.
+                if dtype is from PyTorch, the transform will use the pytorch backend, else with numpy backend.
+        """
+
+        self.class_weights = class_weights
+        self.dtype = dtype
+
+    def __call__(self, label: NdarrayOrTensor):
+        """
+        Args:
+            label: Label based on which the spatial weights distribution is calculated. Has to have shape (1, H, W, D) or (1, H, W)
+        Returns:
+            spatial_weights_distribution: Spatial weights distribution based on the label data. Has same shape as the input label data.
+        """
+
+        spatial_weights_distribution = torch.zeros_like(label, dtype=self.dtype, device=label.device)
+
+        for c, w in enumerate(self.class_weights):
+            spatial_weights_distribution[label == c] = w
+
+        # normalize the spatial weights distribution
+        spatial_weights_distribution = spatial_weights_distribution / spatial_weights_distribution.sum() * spatial_weights_distribution.numel()
+
+        return spatial_weights_distribution
+
+
 class BinarizeLabel:
     """
     Utility to map label values to labels in binary encoding.
@@ -1330,7 +1367,6 @@ class BinarizeLabel:
                 out_t[:, (img_t == o).squeeze(0)] = t[:, None]
         out, *_ = convert_to_dst_type(src=out_t, dst=img, dtype=self.dtype)
         return out
-
 
 class IntensityStats(Transform):
     """
