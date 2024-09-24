@@ -269,6 +269,38 @@ class UnetOutBlock(nn.Module):
         return self.conv(inp)
 
 
+class RecurrentUnetOutBlock(nn.Module):
+
+    def __init__(
+        self, spatial_dims: int, in_channels: int, out_channels: int, dropout: tuple | str | float | None = None
+    ):
+        super().__init__()
+
+        self.convs = nn.ModuleList()  # required to register sub-modules
+
+        for out_channel_idx in range(out_channels):
+            self.convs.append(get_conv_layer(
+                spatial_dims,
+                in_channels=in_channels+out_channel_idx,  # normal input channels are concatenated with previous output channels
+                out_channels=1,  # output channels are now returned one by one
+                kernel_size=1,
+                stride=1,
+                dropout=dropout,
+                bias=True,
+                act=None,
+                norm=None,
+                conv_only=False,
+            ))
+
+    def forward(self, inp):
+        out_all = []
+        for conv in self.convs:
+            if len(out_all) > 0:
+                inp = torch.cat([inp, out_all[-1]], dim=1)  # concatenate last output channel to the input
+            out = conv(inp)  # apply convolution to get the new output channel
+            out_all.append(out)  # append the new output channel to the list of output channels
+        return torch.cat(out_all, dim=1)  # concatenate all output channels to get the final output
+
 def get_conv_layer(
     spatial_dims: int,
     in_channels: int,
