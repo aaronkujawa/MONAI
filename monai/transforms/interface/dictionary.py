@@ -58,6 +58,7 @@ class ANTsAffineRegistrationd(MapTransform):
         meta_key_postfix: str = "meta_dict",
         allow_missing_keys: bool = False,
         output_folder_path: str = None,
+        save_path_key: str = None,
         template_path: str = None,
     ) -> None:
         """
@@ -71,7 +72,10 @@ class ANTsAffineRegistrationd(MapTransform):
             is meta_dict. The metadata is a dictionary object. For example, load nifti file for image, store the metadata into
             image_meta_dict.
         :param allow_missing_keys: don’t raise exception if key is missing.
-        :param output_folder_path: Path to folder where registered nifti files and transforms are saved
+        :param output_folder_path: Path to folder where registered nifti files and transforms are saved. This only has
+            an effect if save_path_key is not None.
+        :param save_path_key: Key to the save path of the final prediction. The registered image will be saved to a
+            subfolder in the corresponding directory.
         :param template_path: Path to reference image for affine registration and resampling.
         """
         super().__init__(keys, allow_missing_keys)
@@ -80,7 +84,11 @@ class ANTsAffineRegistrationd(MapTransform):
         if len(self.keys) != len(self.meta_keys):
             raise ValueError("meta_keys should have the same length as keys.")
         self.meta_key_postfix = ensure_tuple_rep(meta_key_postfix, len(self.keys))
+
+        assert (output_folder_path or save_path_key), "Either output_folder_path or save_path_key must be provided."
         self.output_folder_path = output_folder_path
+        self.save_path_key = save_path_key
+
         self.template_path = template_path
 
         assert moving_img_key in keys, f"moving_image_key ({moving_img_key}) has to be in keys ({keys})..."
@@ -102,7 +110,11 @@ class ANTsAffineRegistrationd(MapTransform):
         original_space_image_path = deepcopy(d[key])
 
         # define paths where ANTs should save the registered image and affine transform matrix file
-        mni_space_folder = self.output_folder_path
+        if not self.save_path_key:
+            mni_space_folder = self.output_folder_path
+        else:
+            mni_space_folder = os.path.join(os.path.dirname(d[self.save_path_key]), "preprocessed", "registered", key)
+
         mni_space_img_filename = os.path.basename(original_space_image_path).replace(
             ".nii.gz", "_ANTsregistered.nii.gz"
         )
@@ -130,7 +142,8 @@ class ANTsAffineRegistrationd(MapTransform):
             original_space_image_path = deepcopy(d[key])
 
             # define paths where ANTs should save the registered image and affine transform matrix file
-            mni_space_folder = self.output_folder_path
+            mni_space_folder = os.path.join(os.path.dirname(d[self.save_path_key]), "preprocessed", "registered", key)
+            os.makedirs(mni_space_folder, exist_ok=True)
             mni_space_img_filename = os.path.basename(original_space_image_path).replace(
                 ".nii.gz", "_ANTsregistered.nii.gz"
             )
@@ -186,11 +199,11 @@ class ANTsApplyTransformd(MapTransform):
         self.ANTsApplyTransform = ANTsApplyTransform()
 
     def __call__(
-        self,
-        data: Mapping[Hashable, NdarrayOrTensor],
-        input_file_path: str,
-        output_file_path: str,
-        use_inverse_trfm: bool,
+            self,
+            data: Mapping[Hashable, NdarrayOrTensor],
+            input_file_path: str,
+            output_file_path: str,
+            use_inverse_trfm: bool,
     ) -> dict[Hashable, NdarrayOrTensor]:
         """
         :param data: data dictionary that contains meta information about the paths of the affine transformation file
@@ -233,6 +246,7 @@ class BrainExtractiond(MapTransform):
         meta_key_postfix: str = "meta_dict",
         allow_missing_keys: bool = False,
         output_folder_path: str = None,
+        save_path_key: str = None,
     ) -> None:
         """
         :param keys: keys of the corresponding items to be transformed. See also:
@@ -243,14 +257,20 @@ class BrainExtractiond(MapTransform):
             is meta_dict. The metadata is a dictionary object. For example, load nifti file for image, store the metadata into
             image_meta_dict.
         :param allow_missing_keys: don’t raise exception if key is missing.
-        :param output_folder_path: Path to folder where brain-extracted images are saved
+        :param output_folder_path: Path to folder where brain-extracted images are saved. This only has an effect if
+            save_path_key is not None.
+        :param save_path_key: Key to the save path of the final prediction. The brain-extracted image will be saved to
+            a subfolder in the corresponding directory.
         """
         super().__init__(keys, allow_missing_keys)
         self.meta_keys = ensure_tuple_rep(None, len(self.keys)) if meta_keys is None else ensure_tuple(meta_keys)
         if len(self.keys) != len(self.meta_keys):
             raise ValueError("meta_keys should have the same length as keys.")
         self.meta_key_postfix = ensure_tuple_rep(meta_key_postfix, len(self.keys))
+
+        assert (output_folder_path or save_path_key), "Either output_folder_path or save_path_key must be provided."
         self.output_folder_path = output_folder_path
+        self.save_path_key = save_path_key
 
         self.brainExtraction = BrainExtraction()
 
@@ -263,9 +283,14 @@ class BrainExtractiond(MapTransform):
             original_image_path = deepcopy(d[key])
 
             # define paths where HD-BET should save the stripped image
-            stripped_images_folder = self.output_folder_path
-            stripped_img_filename = os.path.basename(original_image_path).replace(".nii.gz", "_stripped.nii.gz")
-            stripped_img_path = os.path.join(stripped_images_folder, stripped_img_filename)
+            if not self.save_path_key:
+                stripped_images_folder = self.output_folder_path
+                stripped_img_filename = os.path.basename(original_image_path).replace(".nii.gz", "_stripped.nii.gz")
+                stripped_img_path = os.path.join(stripped_images_folder, stripped_img_filename)
+            else:
+                stripped_images_folder = os.path.join(os.path.dirname(d[self.save_path_key]), "preprocessed", "brain_extracted", key)
+                stripped_img_filename = os.path.basename(original_image_path).replace(".nii.gz", "_stripped.nii.gz")
+                stripped_img_path = os.path.join(stripped_images_folder, stripped_img_filename)
 
             # store paths in metadata
             d[meta_key + "_original_image_path"] = original_image_path
