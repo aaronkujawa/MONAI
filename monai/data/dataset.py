@@ -371,7 +371,7 @@ class PersistentDataset(Dataset):
 
         if hashfile is not None and hashfile.is_file():  # cache hit
             try:
-                return torch.load(hashfile)
+                return torch.load(hashfile, weights_only=False)
             except PermissionError as e:
                 if sys.platform != "win32":
                     raise e
@@ -523,7 +523,7 @@ class PersistentStagedDataset(PersistentDataset):
 
         if new_hashfile is not None and new_hashfile.is_file():  # cache hit
             try:
-                return torch.load(new_hashfile)
+                return torch.load(new_hashfile, weights_only=False)
             except PermissionError as e:
                 if sys.platform != "win32":
                     raise e
