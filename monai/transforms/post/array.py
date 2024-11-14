@@ -163,7 +163,10 @@ class AppendDownsampled(Transform):
 
         ret = []
         for s in self.downsampled_shapes:
-            downsampled_img = interpolate(input=img, size=s, mode=self.mode)
+            if img.shape[2:] == torch.Size(s):  # no need to downsample if input shape is same as desired shape
+                downsampled_img = img
+            else:
+                downsampled_img = interpolate(input=img, size=s, mode=self.mode)
             downsampled_img = EnsureType()(downsampled_img)
 
             ret.append(downsampled_img)
