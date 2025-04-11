@@ -19,6 +19,7 @@ import io
 import os
 import subprocess
 import sys
+from ants.internal import get_lib_fn
 
 from monai.transforms.transform import Transform
 from monai.utils import optional_import
@@ -32,7 +33,7 @@ class ANTsAffineRegistration(Transform):
     """
     Registers a nifti image with an affine transformation to a reference image and resamples at the registered image
     at the coordinates of the reference image. Subsequently, the registered image is saved to disk as a new nifti
-    file and the path to the new file is returned. Advanced Normalization Tools (ANTs) is required for this transform.
+    file and the path to the new file is returned.
     """
 
     def __init__(self, template_path: str) -> None:
@@ -53,39 +54,49 @@ class ANTsAffineRegistration(Transform):
         moving_file_path = original_space_image_path
         output_moved_file_path = mni_space_img_path
 
-        ants_binary_path = "antsRegistration"  # requires the corresponding binary file to be on the PATH
         ants_output = f"[{output_affine_path},{output_moved_file_path}]"
         ants_initial_moving_transforms = f"[{fixed_file_path},{moving_file_path},1]"
         ants_metric1 = f"MI[{fixed_file_path},{moving_file_path},1,32,Regular,0.25]"
         ants_metric2 = f"MI[{fixed_file_path},{moving_file_path},1,32,Regular,0.25]"
 
-        ants_cmd = (
-            f"{ants_binary_path} --verbose 0 --dimensionality 3 --float 1 --output {ants_output} "
-            f"--interpolation Linear --use-histogram-matching 1 --winsorize-image-intensities [0.005,0.995] "
-            f"--transform Rigid[0.1] --convergence [1000x500x250x100x0,1e-6,10] --shrink-factors 12x8x4x2x1 "
-            f"--smoothing-sigmas 4x3x2x1x1vox --initial-moving-transform {ants_initial_moving_transforms} "
-            f"--metric {ants_metric1} --transform Affine[0.1] --metric {ants_metric2} "
-            f"--convergence [1000x500x250x100x0,1e-6,10] --shrink-factors 12x8x4x2x1 "
-            f"--smoothing-sigmas 4x3x2x1x1vox"
-        )
+        antsRegistration_args = [
+            "--verbose", "0",
+            "--dimensionality", "3",
+            "--float", "1",
+            "--output", ants_output,
+            "--interpolation", "Linear",
+            "--use-histogram-matching", "1",
+            "--winsorize-image-intensities", "[0.005,0.995]",
+            "--transform", "Rigid[0.1]",
+            "--convergence", "[1000x500x250x100x0,1e-6,10]",
+            "--shrink-factors", "12x8x4x2x1",
+            "--smoothing-sigmas", "4x3x2x1x1vox",
+            "--initial-moving-transform", ants_initial_moving_transforms,
+            "--metric", ants_metric1,
+            "--transform", "Affine[0.1]",
+            "--metric", ants_metric2,
+            "--convergence", "[1000x500x250x100x0,1e-6,10]",
+            "--shrink-factors", "12x8x4x2x1",
+            "--smoothing-sigmas", "4x3x2x1x1vox",
+        ]
+
+        # print(f"antsRegistration args: {antsRegistration_args}")
 
         os.makedirs(os.path.dirname(output_moved_file_path), exist_ok=True)
         os.makedirs(os.path.dirname(output_affine_path), exist_ok=True)
 
         print("run affine registration...")
-        return_code, result = subprocess.getstatusoutput(ants_cmd)
-
-        if not return_code == 0:
-            raise Exception(f"ANTs affine registration command did not return code 0.\n"
-                            f"The command was: {ants_cmd}\n"
-                            f"The result was: {result}\n")
+        lib_fn = get_lib_fn("antsRegistration")
+        if lib_fn is None:
+            raise RuntimeError("ANTsRegistration binary not found. Please install ANTsPy.")
+        lib_fn(antsRegistration_args)
 
         return output_moved_file_path
 
 
 class ANTsApplyTransform(Transform):
     """
-    Uses Advanced Normalization Tools (ANTs) to apply an ANTs affine transformation to a nifti file and subsequently
+    Uses ANTsPy to apply a specified affine transformation to a nifti file and subsequently
     resamples the input image in the space of a reference image. This transform is used to invert a registration
     operation performed with ANTsAffineRegistration.
     """
@@ -111,20 +122,24 @@ class ANTsApplyTransform(Transform):
         :return: Path to the transformed and resampled output image (same as output_file_path)
         """
 
-        ants_applytransform_binary_path = (
-            "antsApplyTransforms"  # requires the corresponding binary file to be on the PATH
-        )
+
         use_inverse_trfm = 1 if use_inverse_trfm else 0
-        ants_cmd = (
-            f"{ants_applytransform_binary_path} -d 3 -r {reference_image_path} -t [ {affine_trfm_file_path}, "
-            f"{use_inverse_trfm}] -n NearestNeighbor -i {input_file_path} -o {output_file_path}"
-        )
+
+        antsApplyTransforms_args = [
+            "-d", "3",
+            "-r", reference_image_path,
+            "-t", f"[{affine_trfm_file_path}, {use_inverse_trfm}]",
+            "-n", "NearestNeighbor",
+            "-i", input_file_path,
+            "-o", output_file_path,
+        ]
 
         print(f"apply {'inverse' if use_inverse_trfm else ''} ANTs transform to {input_file_path}...")
-        return_code = os.system(ants_cmd)
 
-        if not return_code == 0:
-            raise Exception(f"ANTs apply transform command did not return code 0. The command was: {ants_cmd}")
+        lib_fn = get_lib_fn("antsApplyTransforms")
+        if lib_fn is None:
+            raise RuntimeError("ANTsApplyTransforms binary not found. Please install ANTsPy.")
+        lib_fn(antsApplyTransforms_args)
 
         return output_file_path
 
