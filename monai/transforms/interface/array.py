@@ -78,6 +78,7 @@ class ANTsAffineRegistration(Transform):
             "--convergence", "[1000x500x250x100x0,1e-6,10]",
             "--shrink-factors", "12x8x4x2x1",
             "--smoothing-sigmas", "4x3x2x1x1vox",
+            "--random-seed", "1234",
         ]
 
         # print(f"antsRegistration args: {antsRegistration_args}")
