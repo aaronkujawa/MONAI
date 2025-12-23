@@ -19,12 +19,14 @@ import io
 import os
 import subprocess
 import sys
+
 from ants.internal import get_lib_fn
 
 from monai.transforms.transform import Transform
 from monai.utils import optional_import
 
-hd_bet_run, _ = optional_import("HD_BET.run")
+hd_bet_checkpoint_download, _ = optional_import("HD_BET.checkpoint_download")
+hd_bet_get_hdbet_prediction, _ = optional_import("HD_BET.hd_bet_prediction")
 
 __all__ = ["ANTsAffineRegistration", "ANTsApplyTransform", "BrainExtraction"]
 
@@ -165,16 +167,31 @@ class BrainExtraction(Transform):
 
         # define context manager to suppress the print statements inside hd_bet
         @contextlib.contextmanager
-        def nostdout():
-            save_stdout = sys.stdout
-            sys.stdout = io.StringIO()
-            yield
-            sys.stdout = save_stdout
+        def no_stdout_no_stderr():
+            save_stdout, save_stderr = sys.stdout, sys.stderr
+            sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+            try:
+                yield
+            finally:
+                sys.stdout, sys.stderr = save_stdout, save_stderr
 
         print("run brain-extraction...")
-        with nostdout():
+        with no_stdout_no_stderr():
             print(f"run brain-extraction on {original_image_path}...")
             print(f"output will be saved to {stripped_img_path}...")
-            hd_bet_run.run_hd_bet([original_image_path], [stripped_img_path], mode="fast", do_tta=False, bet=True)
+            #hd_bet_run.run_hd_bet([original_image_path], [stripped_img_path], mode="fast", do_tta=False, bet=True)
+
+            hd_bet_checkpoint_download.maybe_download_parameters()
+
+            predictor = hd_bet_get_hdbet_prediction.get_hdbet_predictor(
+                use_tta=False,
+                verbose=False
+            )
+
+            hd_bet_get_hdbet_prediction.hdbet_predict(original_image_path,
+                                                      stripped_img_path,
+                                                      predictor,
+                                                      keep_brain_mask=True,
+                                                      compute_brain_extracted_image=True)
 
         return stripped_img_path
